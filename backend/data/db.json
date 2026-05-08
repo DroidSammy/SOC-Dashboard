@@ -1,0 +1,101 @@
+{
+  "users": [
+    {
+      "id": "user-1",
+      "name": "SOC Analyst",
+      "email": "analyst@soc.local",
+      "role": "analyst",
+      "passwordHash": "$2a$10$i7I9ELhmjnTugp8dGiO.9.ovKj60T8fEbTCBTPb.kUbpUdGGzpL/O"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "SOC-1001",
+      "type": "Phishing URL",
+      "severity": "high",
+      "status": "Open",
+      "source": "paypal-verify-account.tk",
+      "assignee": "Analyst A",
+      "createdAt": "2026-05-08T17:12:16.744Z",
+      "updatedAt": "2026-05-08T17:12:16.745Z",
+      "notes": [
+        "Auto-created from URL detector"
+      ]
+    },
+    {
+      "id": "SOC-1002",
+      "type": "Web Vulnerability",
+      "severity": "medium",
+      "status": "Investigating",
+      "source": "test.local",
+      "assignee": "Analyst B",
+      "createdAt": "2026-05-08T16:31:16.745Z",
+      "updatedAt": "2026-05-08T17:20:16.745Z",
+      "notes": [
+        "Missing CSP and HSTS headers"
+      ]
+    }
+  ],
+  "activity": [
+    {
+      "id": 1778263146962,
+      "text": "Network anomaly detected",
+      "severity": "high",
+      "time": "2026-05-08T17:59:06.962Z"
+    },
+    {
+      "id": 1778263129531,
+      "text": "Network traffic normal",
+      "severity": "none",
+      "time": "2026-05-08T17:58:49.531Z"
+    },
+    {
+      "id": 1778263129514,
+      "text": "Email scan completed via ml-service",
+      "severity": "high",
+      "time": "2026-05-08T17:58:49.514Z"
+    },
+    {
+      "id": 1778263129489,
+      "text": "SOC Analyst logged in",
+      "severity": "low",
+      "time": "2026-05-08T17:58:49.489Z"
+    },
+    {
+      "id": 1778263086747,
+      "text": "URL scan completed via ml-service",
+      "severity": "high",
+      "time": "2026-05-08T17:58:06.747Z"
+    },
+    {
+      "id": 1778263068226,
+      "text": "URL scan completed via node-fallback",
+      "severity": "high",
+      "time": "2026-05-08T17:57:48.226Z"
+    },
+    {
+      "id": 1778262996153,
+      "text": "SOC Analyst logged in",
+      "severity": "low",
+      "time": "2026-05-08T17:56:36.153Z"
+    },
+    {
+      "id": 1778261903863,
+      "text": "URL scan completed via node-fallback",
+      "severity": "high",
+      "time": "2026-05-08T17:38:23.863Z"
+    },
+    {
+      "id": 1778261896743,
+      "text": "Backend API bootstrapped",
+      "severity": "low",
+      "time": "2026-05-08T17:30:16.745Z"
+    },
+    {
+      "id": 1778261896744,
+      "text": "Demo incident storage loaded",
+      "severity": "low",
+      "time": "2026-05-08T17:31:16.745Z"
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+/* File: frontend/src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Google Fonts already loaded via index.html ── */
+
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --card: #1a2235;
+  --border: #1e2d45;
+  --accent: #00d4ff;
+  --green: #00ff88;
+  --red: #ff4444;
+  --yellow: #ffd700;
+  --orange: #ff8c00;
+  --purple: #8b5cf6;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── SOC Component Classes ── */
+.soc-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.soc-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.6rem 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.soc-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,212,255,0.15); }
+
+.soc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  outline: none;
+}
+.soc-btn-primary {
+  background: var(--accent);
+  color: #000;
+}
+.soc-btn-primary:hover { background: #00bbdd; box-shadow: 0 0 15px rgba(0,212,255,0.4); }
+.soc-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.soc-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+.soc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.badge-critical { background: rgba(255,68,68,0.2); color: var(--red); border: 1px solid rgba(255,68,68,0.3); }
+.badge-high { background: rgba(255,140,0,0.2); color: var(--orange); border: 1px solid rgba(255,140,0,0.3); }
+.badge-medium { background: rgba(255,215,0,0.2); color: var(--yellow); border: 1px solid rgba(255,215,0,0.3); }
+.badge-low { background: rgba(0,255,136,0.2); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+.badge-safe { background: rgba(0,255,136,0.2); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+.badge-dangerous { background: rgba(255,68,68,0.2); color: var(--red); border: 1px solid rgba(255,68,68,0.3); }
+.badge-suspicious { background: rgba(255,215,0,0.2); color: var(--yellow); border: 1px solid rgba(255,215,0,0.3); }
+.badge-open { background: rgba(255,68,68,0.2); color: var(--red); }
+.badge-investigating { background: rgba(255,140,0,0.2); color: var(--orange); }
+.badge-resolved { background: rgba(0,255,136,0.2); color: var(--green); }
+.badge-closed { background: rgba(148,163,184,0.2); color: var(--text-secondary); }
+
+/* ── Animated threat pulse ── */
+@keyframes threatPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+.threat-pulse { animation: threatPulse 2s infinite; }
+
+/* ── Scan result highlight ── */
+@keyframes scanLine {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+.scan-line {
+  position: absolute;
+  left: 0; right: 0; height: 2px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  animation: scanLine 2s linear infinite;
+}
+
+/* ── Glowing text ── */
+.text-glow-accent { text-shadow: 0 0 10px var(--accent), 0 0 20px rgba(0,212,255,0.5); }
+.text-glow-red { text-shadow: 0 0 10px var(--red), 0 0 20px rgba(255,68,68,0.5); }
+.text-glow-green { text-shadow: 0 0 10px var(--green), 0 0 20px rgba(0,255,136,0.5); }
+
+/* ── Leaflet dark override ── */
+.leaflet-container { background: #0a0e1a !important; }
+.leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.7) saturate(2); }
+
+/* ── Typing cursor ── */
+.typing-cursor::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Loading skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
