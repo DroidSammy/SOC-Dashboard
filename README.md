@@ -1,114 +1,52 @@
 # Cybersecurity SOC Dashboard
 
-Mini Security Operations Center dashboard for a college minor project. The current MVP includes:
+A completely functional Security Operations Center dashboard built with React, Node.js, Python, and PostgreSQL. Features real-time packet sniffing, live threat maps, AI-based phishing detection, and vulnerability scanning.
 
-- Central analytics dashboard with live stats, charts, threat map, activity log, and incidents
-- Phishing URL detector connected to the Python ML service
-- Email phishing detector connected to the Python ML service
-- Password strength and breach analyzer
-- Web vulnerability scanner
-- Simulated network anomaly detector
-- CVE intelligence search with NVD fallback data
-- Incident ticket workflow
+## 🚀 How to Run the Project (From Scratch)
 
-## Project Structure
+Whenever you open VS Code to work on or demo this project, you need to start 3 separate terminals. Open VS Code, click **Terminal -> New Terminal** at the top, and follow these steps:
 
-```text
-backend/       Node.js + Express API, Socket.io, JSON demo database
-frontend/      React + Vite + Tailwind dashboard
-ml_service/    Flask analysis service and ML training scripts
-```
-
-## Backend Setup
-
-PowerShell blocks `npm.ps1` on this PC, so use `npm.cmd`.
-
+### Terminal 1: Start the Database & Backend
+*This connects to your PostgreSQL database and starts the API server.*
 ```powershell
 cd backend
-npm.cmd install
-npm.cmd run dev
+npm run dev
 ```
 
-The backend runs on:
-
-```text
-http://localhost:4000
-```
-
-It stores demo incidents in:
-
-```text
-backend/data/db.json
-```
-
-The backend can work without Python by using built-in fallback rules. When the Python ML service is running, the backend automatically proxies ML requests to `http://localhost:5001`.
-
-Demo login:
-
-```text
-Email: analyst@soc.local
-Password: admin123
-```
-
-## Frontend Setup
-
-PowerShell blocks `npm.ps1` on this PC, so use `npm.cmd`.
-
-```powershell
-cd frontend
-npm.cmd install
-npm.cmd run dev
-```
-
-Open the URL Vite prints, usually:
-
-```text
-http://localhost:5173
-```
-
-Build check:
-
-```powershell
-npm.cmd run build
-```
-
-## Python ML Service Setup
-
-Install Python 3.11 or 3.12 first if `python --version` does not work.
-
+### Terminal 2: Start the Python AI & Sniffer
+*This runs the Scikit-Learn models and connects to your Wi-Fi card using Npcap.*
+*(Click the `+` icon or split button in your terminal panel to open a new one)*
 ```powershell
 cd ml_service
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python train_models.py
-python app.py
+.\.venv\Scripts\python.exe app.py
 ```
 
-The service runs on:
-
-```text
-http://localhost:5001
-```
-
-The React app uses this automatically. To override it:
-
+### Terminal 3: Start the React Frontend
+*This launches the actual User Interface.*
+*(Open one last terminal)*
 ```powershell
-$env:VITE_API_URL="http://localhost:4000"
-npm.cmd run dev
+cd frontend
+npm run dev
 ```
 
-## Demo Flow
+Once all three are running, open your browser and go to:
+**http://localhost:5173**
 
-1. Open Overview and show charts, live map, incidents, and activity log.
-2. Run URL Scan with `http://paypal-verify-account.tk/login.php`.
-3. Run Email Scan with the prefilled urgent account suspension email.
-4. Open Tickets and show the auto-created incident.
-5. Run Password Analyzer with `password123`, then try a stronger password.
-6. Run Network -> Simulate Attack and show the incident creation.
-7. Search CVE Intel for `Apache`.
-8. Run Web Scan and export the PDF vulnerability report.
+---
 
-## Safe Scanning Note
+## 🔑 Login Credentials
 
-Use the vulnerability scanner only on your own sites, local labs, or legal test targets such as intentionally vulnerable demo apps.
+You can log in with the default demo account:
+*   **Email:** `analyst@soc.local`
+*   **Password:** `admin123`
+
+*(You can also use the "Sign Up" button on the login screen to securely create a new account in the PostgreSQL database).*
+
+## 🌟 Demo Checklist
+When presenting this project to your evaluators, show these things in order:
+1.  **Overview Dashboard:** Show the live metrics, interactive threat map, and real-time activity log.
+2.  **Live Network Sniffer:** Go to the Network tab, toggle "Live Sniffing", and show actual packets from your Wi-Fi being analyzed in real-time.
+3.  **URL Phishing:** Type `www.goggle.com` to show the AI catching a Typosquatting attack.
+4.  **Web Scan:** Scan a test website to generate an instant vulnerability report.
+5.  **Password Analyzer:** Type a weak password and watch it instantly query the HaveIBeenPwned API to show how many data breaches it appeared in.
+6.  **Incident Tickets:** Show how the system automatically generated an Incident Ticket for the threats you just detected.

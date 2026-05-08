@@ -137,6 +137,13 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   await logActivity(`${user.name} logged in`, 'low');
+
+  // Send push notification to phone
+  axios.post('https://ntfy.sh/soc-dashboard-demo-sameer', 
+    `🚨 Successful login by ${user.name} (${user.email})`, 
+    { headers: { 'Title': 'SOC Sentinel Alert', 'Tags': 'warning,desktop_computer' } }
+  ).catch(() => {});
+
   res.json({ token: signToken(user), user: publicUser(user) });
 });
 
@@ -165,6 +172,13 @@ app.post('/api/auth/register', async (req, res) => {
     );
     const user = { id, name, email, role: 'analyst' };
     await logActivity(`New user registered: ${name}`, 'low');
+
+    // Send push notification to phone
+    axios.post('https://ntfy.sh/soc-dashboard-demo-sameer', 
+      `🎉 New Account Created: ${name} (${email})`, 
+      { headers: { 'Title': 'SOC Sentinel Alert', 'Tags': 'tada,bust_in_silhouette' } }
+    ).catch(() => {});
+
     res.json({ token: signToken(user), user });
   } catch (err) {
     res.status(500).json({ error: 'Database error creating user' });

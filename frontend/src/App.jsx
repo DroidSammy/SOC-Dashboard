@@ -119,8 +119,8 @@ const chartGrid = 'rgba(148, 163, 184, 0.14)';
 function LoginScreen({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('analyst@soc.local');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -170,7 +170,6 @@ function LoginScreen({ onLogin }) {
           <button type="button" onClick={() => setIsRegister(!isRegister)} className="text-soc-accent hover:underline">
             {isRegister ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
           </button>
-          {!isRegister && <span className="text-slate-500">Demo: analyst@soc.local</span>}
         </div>
       </form>
     </div>
@@ -512,7 +511,12 @@ function UrlScanner({ createTicket, pushLog }) {
       title="Phishing URL Detector"
       action={<button type="button" className="soc-btn soc-btn-primary" onClick={scan} disabled={loading}>{loading ? 'Scanning' : 'Scan URL'}</button>}
     >
-      <input className="soc-input" value={url} onChange={(event) => setUrl(event.target.value)} />
+      <input 
+        className="soc-input" 
+        value={url} 
+        onChange={(event) => setUrl(event.target.value)} 
+        onKeyDown={(e) => e.key === 'Enter' && scan()}
+      />
       {result && <ResultCard result={result} source="URL" />}
     </ToolLayout>
   );
@@ -596,7 +600,12 @@ function PasswordAnalyzer({ pushLog }) {
       title="Password Security Analyzer"
       action={<button type="button" className="soc-btn soc-btn-primary" onClick={checkBreach}>Check Breach</button>}
     >
-      <input className="soc-input" value={password} onChange={(event) => setPassword(event.target.value)} />
+      <input 
+        className="soc-input font-mono" 
+        value={password} 
+        onChange={(event) => setPassword(event.target.value)} 
+        onKeyDown={(e) => e.key === 'Enter' && checkBreach()}
+      />
       {result && (
         <div className="grid grid-cols-[0.8fr_1.2fr] gap-4 max-lg:grid-cols-1">
           <div className="soc-card">
