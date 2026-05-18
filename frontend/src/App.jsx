@@ -32,6 +32,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Bar, Doughnut, Line, Radar as RadarChart } from 'react-chartjs-2';
+import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import { api, API_BASE } from './api';
 
 ChartJS.register(
@@ -59,11 +60,18 @@ const navItems = [
 ];
 
 const demoThreats = [
-  { city: 'Moscow', x: 58, y: 31, severity: 'high', ip: '185.220.101.42', type: 'Brute force' },
-  { city: 'Singapore', x: 76, y: 58, severity: 'medium', ip: '103.21.244.18', type: 'Phishing host' },
-  { city: 'Frankfurt', x: 51, y: 36, severity: 'low', ip: '45.83.64.12', type: 'Scanner' },
-  { city: 'Sao Paulo', x: 36, y: 70, severity: 'critical', ip: '177.54.148.33', type: 'Malware C2' },
-  { city: 'Virginia', x: 25, y: 42, severity: 'medium', ip: '34.201.89.7', type: 'Credential stuffing' },
+  { city: 'Moscow', lat: 55.7558, lng: 37.6173, x: 58, y: 31, severity: 'high', ip: '185.220.101.42', type: 'Brute force' },
+  { city: 'Singapore', lat: 1.3521, lng: 103.8198, x: 76, y: 58, severity: 'medium', ip: '103.21.244.18', type: 'Phishing host' },
+  { city: 'Frankfurt', lat: 50.1109, lng: 8.6821, x: 51, y: 36, severity: 'low', ip: '45.83.64.12', type: 'Scanner' },
+  { city: 'Sao Paulo', lat: -23.5505, lng: -46.6333, x: 36, y: 70, severity: 'critical', ip: '177.54.148.33', type: 'Malware C2' },
+  { city: 'Virginia', lat: 37.4316, lng: -78.6569, x: 25, y: 42, severity: 'medium', ip: '34.201.89.7', type: 'Credential stuffing' },
+  { city: 'Tokyo', lat: 35.6762, lng: 139.6503, x: 82, y: 38, severity: 'high', ip: '114.160.10.22', type: 'DDoS Origin' },
+  { city: 'London', lat: 51.5074, lng: -0.1278, x: 48, y: 33, severity: 'medium', ip: '82.21.44.19', type: 'Port Scan' },
+  { city: 'Sydney', lat: -33.8688, lng: 151.2093, x: 88, y: 80, severity: 'low', ip: '202.14.88.9', type: 'Reconnaissance' },
+  { city: 'Johannesburg', lat: -26.2041, lng: 28.0473, x: 54, y: 75, severity: 'high', ip: '196.44.20.1', type: 'SQL Injection' },
+  { city: 'Mumbai', lat: 19.0760, lng: 72.8777, x: 68, y: 50, severity: 'critical', ip: '14.139.60.22', type: 'Ransomware C2' },
+  { city: 'Toronto', lat: 43.6510, lng: -79.3470, x: 23, y: 34, severity: 'medium', ip: '199.204.14.8', type: 'Data Exfiltration' },
+  { city: 'Beijing', lat: 39.9042, lng: 116.4074, x: 74, y: 35, severity: 'high', ip: '202.108.22.5', type: 'APT Activity' }
 ];
 
 const sampleCves = [
@@ -551,6 +559,15 @@ function EmailScanner({ createTicket, pushLog }) {
     >
       <textarea className="soc-input min-h-44 resize-y" value={email} onChange={(event) => setEmail(event.target.value)} />
       {result && <ResultCard result={result} source="Email" />}
+      {result?.chatgpt_explanation && (
+        <div className="rounded-lg border border-[#00d4ff]/40 bg-[#00d4ff]/10 p-4 shadow-[0_0_15px_rgba(0,212,255,0.1)]">
+          <div className="mb-2 flex items-center gap-2">
+            <svg className="h-5 w-5 text-[#00d4ff]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            <h4 className="font-bold text-white">ChatGPT AI Insight</h4>
+          </div>
+          <p className="text-sm text-slate-200 leading-relaxed">{result.chatgpt_explanation}</p>
+        </div>
+      )}
       {result?.suspicious_phrases?.length > 0 && (
         <div className="soc-card">
           <h4 className="mb-3 font-semibold text-white">Suspicious Phrases</h4>
@@ -889,37 +906,111 @@ function TicketDesk({ tickets, setTickets, pushLog }) {
   );
 }
 
+function MapFlyTo({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) map.flyTo(center, zoom, { duration: 1.5 });
+  }, [center, zoom, map]);
+  return null;
+}
+
 function ThreatMap({ activeIndex }) {
+  const [searchIp, setSearchIp] = useState('');
+  const [customThreat, setCustomThreat] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchIp.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`https://get.geojs.io/v1/ip/geo/${searchIp.trim()}.json`);
+      if (!res.ok) throw new Error('API Error');
+      const data = await res.json();
+      if (data.latitude && data.longitude) {
+        setCustomThreat({
+          ip: data.ip,
+          city: data.city || data.country || 'Unknown',
+          lat: parseFloat(data.latitude),
+          lng: parseFloat(data.longitude),
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Panel title="Live Threat Map">
-      <div className="relative min-h-80 overflow-hidden rounded-lg border border-soc-border bg-[#08111f]">
-        <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(0,212,255,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(0,212,255,.12)_1px,transparent_1px)] [background-size:36px_36px]" />
-        <div className="absolute left-[8%] top-[22%] h-[42%] w-[28%] rounded-[45%] border border-soc-accent/25" />
-        <div className="absolute left-[43%] top-[24%] h-[35%] w-[18%] rounded-[45%] border border-soc-accent/25" />
-        <div className="absolute left-[63%] top-[18%] h-[48%] w-[28%] rounded-[45%] border border-soc-accent/25" />
-        <div className="absolute left-[34%] top-[63%] h-[25%] w-[18%] rounded-[45%] border border-soc-accent/25" />
-        {demoThreats.map((threat, index) => (
-          <div
-            key={threat.ip}
-            className="absolute"
-            style={{ left: `${threat.x}%`, top: `${threat.y}%` }}
-          >
-            <div className={classNames(
-              'h-3 w-3 rounded-full shadow-[0_0_18px_currentColor]',
-              index === activeIndex ? 'animate-ping bg-soc-red text-soc-red' : 'bg-soc-accent text-soc-accent'
-            )} />
-            {index === activeIndex && (
-              <div className="absolute left-4 top-2 w-48 rounded-lg border border-soc-border bg-soc-card p-3 shadow-xl">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="font-bold text-white">{threat.city}</span>
-                  <span className={classNames('soc-badge', severityClass(threat.severity))}>{threat.severity}</span>
+      <form onSubmit={handleSearch} className="mb-4 flex gap-2 relative z-10">
+        <input 
+          type="text" 
+          placeholder="Enter IP to locate..." 
+          className="soc-input flex-1" 
+          value={searchIp} 
+          onChange={(e) => setSearchIp(e.target.value)} 
+        />
+        <button type="submit" className="soc-btn soc-btn-primary" disabled={loading}>
+          {loading ? 'Searching' : 'Locate IP'}
+        </button>
+      </form>
+      <div className="relative min-h-[320px] overflow-hidden rounded-lg border border-soc-border bg-[#08111f] z-0">
+        <MapContainer 
+          center={[20, 0]} 
+          zoom={2} 
+          scrollWheelZoom={false} 
+          style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0 }}
+        >
+          {customThreat && <MapFlyTo center={[customThreat.lat, customThreat.lng]} zoom={5} />}
+          <TileLayer
+            attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
+          {customThreat && (
+            <CircleMarker
+              center={[customThreat.lat, customThreat.lng]}
+              radius={8}
+              pathOptions={{ color: '#ffb300', fillColor: '#ffb300', fillOpacity: 0.8 }}
+            >
+              <LeafletTooltip permanent direction="top" className="!bg-soc-card !border-soc-border !text-white !p-2 !shadow-xl">
+                <div className="min-w-[120px] rounded p-1 text-slate-100">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="font-bold text-sm text-[#ffb300]">{customThreat.city}</span>
+                    <span className="soc-badge text-[10px] bg-[#ffb300]/20 text-[#ffb300] border border-[#ffb300]/30">SEARCHED</span>
+                  </div>
+                  <p className="font-mono text-xs text-slate-400">{customThreat.ip}</p>
                 </div>
-                <p className="font-mono text-xs text-slate-300">{threat.ip}</p>
-                <p className="text-xs text-slate-400">{threat.type}</p>
-              </div>
-            )}
-          </div>
-        ))}
+              </LeafletTooltip>
+            </CircleMarker>
+          )}
+          {demoThreats.map((threat, index) => (
+            <CircleMarker
+              key={threat.ip}
+              center={[threat.lat, threat.lng]}
+              radius={index === activeIndex ? 10 : 5}
+              pathOptions={{
+                color: index === activeIndex ? '#ff4444' : '#00d4ff',
+                fillColor: index === activeIndex ? '#ff4444' : '#00d4ff',
+                fillOpacity: index === activeIndex ? 0.8 : 0.5,
+              }}
+            >
+              {index === activeIndex && (
+                <LeafletTooltip permanent direction="top" className="!bg-soc-card !border-soc-border !text-white !p-2 !shadow-xl">
+                  <div className="min-w-[150px] rounded p-1 text-slate-100">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="font-bold text-sm text-white">{threat.city}</span>
+                      <span className={classNames('soc-badge text-[10px]', severityClass(threat.severity))}>{threat.severity}</span>
+                    </div>
+                    <p className="font-mono text-xs text-slate-400">{threat.ip}</p>
+                    <p className="text-xs text-soc-accent font-semibold">{threat.type}</p>
+                  </div>
+                </LeafletTooltip>
+              )}
+            </CircleMarker>
+          ))}
+        </MapContainer>
       </div>
     </Panel>
   );

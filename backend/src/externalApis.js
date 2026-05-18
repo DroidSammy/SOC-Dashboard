@@ -1,4 +1,5 @@
 import axios from 'axios';
+import OpenAI from 'openai';
 import { cves, threats } from './demoData.js';
 
 function base64Url(value) {
@@ -10,24 +11,40 @@ export async function checkVirusTotalUrl(url) {
   if (!key) return { enabled: false, verdict: 'not_configured' };
 
   const id = base64Url(url);
-  const { data } = await axios.get(`https://www.virustotal.com/api/v3/urls/${id}`, {
-    headers: { 'x-apikey': key },
-    timeout: 12000,
-  });
-  const stats = data.data?.attributes?.last_analysis_stats || {};
-  const malicious = stats.malicious || 0;
-  const suspicious = stats.suspicious || 0;
+  try {
+    const { data } = await axios.get(`https://www.virustotal.com/api/v3/urls/${id}`, {
+      headers: { 'x-apikey': key },
+      timeout: 12000,
+    });
+    const stats = data.data?.attributes?.last_analysis_stats || {};
+    const malicious = stats.malicious || 0;
+    const suspicious = stats.suspicious || 0;
 
-  return {
-    enabled: true,
-    verdict: malicious > 0 ? 'dangerous' : suspicious > 0 ? 'suspicious' : 'safe',
-    malicious,
-    suspicious,
-    harmless: stats.harmless || 0,
-    undetected: stats.undetected || 0,
-    enginesFlagged: malicious + suspicious,
-    permalink: `https://www.virustotal.com/gui/url/${id}`,
-  };
+    return {
+      enabled: true,
+      verdict: malicious > 0 ? 'dangerous' : suspicious > 0 ? 'suspicious' : 'safe',
+      malicious,
+      suspicious,
+      harmless: stats.harmless || 0,
+      undetected: stats.undetected || 0,
+      enginesFlagged: malicious + suspicious,
+      permalink: `https://www.virustotal.com/gui/url/${id}`,
+    };
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return {
+        enabled: true,
+        verdict: 'unscanned',
+        malicious: 0,
+        suspicious: 0,
+        harmless: 0,
+        undetected: 0,
+        enginesFlagged: 0,
+        permalink: `https://www.virustotal.com/gui/url/${id}`,
+      };
+    }
+    throw error;
+  }
 }
 
 export async function checkGoogleSafeBrowsing(url) {
@@ -148,4 +165,26 @@ export function combineUrlVerdicts(localResult, virusTotal, safeBrowsing) {
   if (localResult.verdict === 'phishing') return 'phishing';
   if (suspicious) return 'suspicious';
   return localResult.verdict || 'legitimate';
+}
+
+export async function explainEmailWithChatGPT(emailText, verdict) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+
+  try {
+    const openai = new OpenAI({ apiKey: key });
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'You are an expert cybersecurity analyst.' },
+        { role: 'user', content: `Analyze the following email which was classified as "${verdict}". Explain in 2-3 concise sentences why it might be ${verdict}, focusing on security indicators like urgency, suspicious links, tone, or requests for sensitive info. Email content: "${emailText}"` }
+      ],
+      temperature: 0.7,
+      max_tokens: 150,
+    });
+    return response.choices[0]?.message?.content?.trim() || null;
+  } catch (error) {
+    console.error("OpenAI API Error:", error.message);
+    return "Error generating AI explanation. Check OpenAI API configuration.";
+  }
 }

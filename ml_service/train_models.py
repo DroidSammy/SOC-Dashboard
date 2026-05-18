@@ -40,93 +40,40 @@ print("="*60)
 # ──────────────────────────────────────────────────────────
 print("\n[1/3] Training URL Phishing Detection Model...")
 
-LEGIT_URLS = [
-    'https://www.google.com',
-    'https://www.amazon.com/products',
-    'https://github.com/user/repo',
-    'https://stackoverflow.com/questions/123',
-    'https://www.youtube.com/watch?v=abc',
-    'https://en.wikipedia.org/wiki/Python',
-    'https://www.reddit.com/r/programming',
-    'https://www.linkedin.com/in/username',
-    'https://twitter.com/user/status/123',
-    'https://www.bbc.com/news/technology',
-    'https://docs.python.org/3/library',
-    'https://www.microsoft.com/en-us/windows',
-    'https://www.apple.com/iphone',
-    'https://www.paypal.com/home',
-    'https://www.netflix.com/browse',
-    'https://www.facebook.com',
-    'https://www.instagram.com',
-    'https://www.nytimes.com/section/technology',
-    'https://www.medium.com/@author/article',
-    'https://www.coursera.org/learn/machine-learning',
-]
+from datasets import load_dataset
 
-PHISHING_URLS = [
-    'http://paypal-verify-account.tk/login.php',
-    'http://192.168.1.1/amazon-secure-login',
-    'http://apple-id-verify.online/confirm.php?user=victim@email.com',
-    'https://google-secure-verify.ml/account/suspended.php',
-    'http://microsoft-update-security.ga/signin.php',
-    'http://bank-secure-login-verify.xyz/update-account',
-    'https://amazon-order-verify-customer-service.ga',
-    'http://paypal.com-secure-login.ru/verify.html',
-    'https://netflix-billing-update-immediately.club',
-    'http://secure-ebay-verify-account.top/login.php?redirect=',
-    'https://google.com-account-verify.ml/suspended',
-    'http://chase-bank-secure-verify.online',
-    'http://irs-tax-refund-verify.ga/claim',
-    'https://apple-icloud-account-locked.xyz/verify',
-    'http://verify-account-immediately-paypal.tk',
-    'https://suspicious-domain.ml/login?next=https://realbank.com',
-    'http://192.168.0.1@evil.com/phishing',
-    'https://accounts.google.com.phishing-site.tk',
-    'http://update-your-credentials-now.xyz/banking',
-    'https://free-gift-card-amazon-claim.online/verify?code=12345',
-]
+print("   Downloading/Loading dataset from HuggingFace (pirocheto/phishing-url)...")
+try:
+    ds = load_dataset("pirocheto/phishing-url", split="train")
+    ds = ds.shuffle(seed=42).select(range(5000))
+    
+    print(f"   Loaded {len(ds)} real-world URLs for training.")
+    
+    X_url = []
+    y_url = []
+    
+    print("   Extracting features from URLs (this may take a minute)...")
+    for row in ds:
+        url = row['url']
+        label = 1 if row['status'] == 'phishing' else 0
+        features = extract_url_features(url)
+        X_url.append(list(features.values()))
+        y_url.append(label)
+        
+    X_url = np.array(X_url)
+    y_url = np.array(y_url)
+    
+    X_train, X_test, y_train, y_test = train_test_split(X_url, y_url, test_size=0.2, random_state=42)
+    url_model = RandomForestClassifier(n_estimators=100, random_state=42, max_depth=15)
+    url_model.fit(X_train, y_train)
 
-# Generate more synthetic URLs
-def make_legit(base):
-    return f'https://www.{base}.com/page/{random.randint(1,999)}'
+    print(f"   Training samples: {len(X_train)}")
+    print(f"   Test accuracy: {url_model.score(X_test, y_test):.1%}")
+    joblib.dump(url_model, os.path.join(MODELS_DIR, 'url_model.pkl'))
+    print("   ✅ Real URL model saved → models/url_model.pkl")
 
-def make_phishing():
-    keywords = ['verify', 'secure', 'login', 'account', 'update', 'confirm']
-    brands = ['paypal', 'amazon', 'google', 'apple', 'microsoft', 'bank']
-    tlds = ['.tk', '.ml', '.ga', '.xyz', '.online', '.top', '.site']
-    brand = random.choice(brands)
-    kw = random.choice(keywords)
-    tld = random.choice(tlds)
-    random_str = ''.join(random.choices(string.ascii_lowercase, k=random.randint(5, 12)))
-    return f'http://{brand}-{kw}-{random_str}{tld}/{kw}.php?redirect='
-
-domains = ['news', 'tech', 'shop', 'blog', 'learn', 'work', 'help', 'support', 'store']
-for d in domains:
-    for _ in range(5):
-        LEGIT_URLS.append(make_legit(d))
-        PHISHING_URLS.append(make_phishing())
-
-all_urls = [(url, 0) for url in LEGIT_URLS] + [(url, 1) for url in PHISHING_URLS]
-random.shuffle(all_urls)
-
-X_url = []
-y_url = []
-for url, label in all_urls:
-    features = extract_url_features(url)
-    X_url.append(list(features.values()))
-    y_url.append(label)
-
-X_url = np.array(X_url)
-y_url = np.array(y_url)
-
-X_train, X_test, y_train, y_test = train_test_split(X_url, y_url, test_size=0.2, random_state=42)
-url_model = RandomForestClassifier(n_estimators=100, random_state=42, max_depth=10)
-url_model.fit(X_train, y_train)
-
-print(f"   Training samples: {len(X_train)}")
-print(f"   Test accuracy: {url_model.score(X_test, y_test):.1%}")
-joblib.dump(url_model, os.path.join(MODELS_DIR, 'url_model.pkl'))
-print("   ✅ URL model saved → models/url_model.pkl")
+except Exception as e:
+    print(f"   ❌ Failed to load dataset: {e}")
 
 
 # ──────────────────────────────────────────────────────────

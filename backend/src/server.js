@@ -15,6 +15,7 @@ import {
   combineUrlVerdicts,
   getAbuseIpThreats,
   searchNvd,
+  explainEmailWithChatGPT,
 } from './externalApis.js';
 import {
   analyzeEmail,
@@ -336,8 +337,14 @@ app.post('/predict/url', async (req, res) => {
 app.post('/predict/email', async (req, res) => {
   const emailContent = String(req.body.email_content || '');
   const result = await proxyToMl('/predict/email', { email_content: emailContent }, () => analyzeEmail(emailContent));
+  
+  let chatgpt_explanation = null;
+  if (process.env.OPENAI_API_KEY) {
+    chatgpt_explanation = await explainEmailWithChatGPT(emailContent, result.data.verdict);
+  }
+
   await logActivity(`Email scan completed via ${result.source}`, result.data.verdict === 'legitimate' ? 'low' : 'high');
-  res.json({ ...result.data, source: result.source });
+  res.json({ ...result.data, source: result.source, chatgpt_explanation });
 });
 
 app.post('/analyze/password', async (req, res) => {

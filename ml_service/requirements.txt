@@ -12,3 +12,4 @@ tld==0.13
 whois==0.9.27
 reportlab==4.0.7
 waitress==3.0.0
+datasets==2.16.1
