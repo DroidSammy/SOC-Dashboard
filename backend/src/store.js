@@ -12,36 +12,42 @@ const pool = usePostgres ? new pg.Pool({ connectionString: process.env.DATABASE_
 const seed = {
   users: [
     {
-      id: 'user-1',
-      name: 'SOC Analyst',
-      email: 'analyst@soc.local',
-      role: 'analyst',
-      // Password: admin123
+      id: 'faculty-1',
+      name: 'Prof. Smith (Faculty)',
+      email: 'faculty@institute.edu',
+      role: 'faculty',
+      passwordHash: '$2a$10$i7I9ELhmjnTugp8dGiO.9.ovKj60T8fEbTCBTPb.kUbpUdGGzpL/O',
+    },
+    {
+      id: 'student-1',
+      name: 'John Doe (Student)',
+      email: 'student@institute.edu',
+      role: 'student',
       passwordHash: '$2a$10$i7I9ELhmjnTugp8dGiO.9.ovKj60T8fEbTCBTPb.kUbpUdGGzpL/O',
     },
   ],
   incidents: [
     {
       id: 'SOC-1001',
-      type: 'Phishing URL',
+      type: 'Gmail Phishing',
       severity: 'high',
       status: 'Open',
-      source: 'paypal-verify-account.tk',
-      assignee: 'Analyst A',
+      source: 'student-finance-verify.tk',
+      assignee: 'Prof. Smith',
       createdAt: new Date(Date.now() - 1000 * 60 * 26).toISOString(),
       updatedAt: new Date(Date.now() - 1000 * 60 * 26).toISOString(),
-      notes: ['Auto-created from URL detector'],
+      notes: ['Auto-created from URL detector targeting students'],
     },
     {
       id: 'SOC-1002',
-      type: 'Web Vulnerability',
+      type: 'Campus Network Vuln',
       severity: 'medium',
       status: 'Investigating',
-      source: 'test.local',
-      assignee: 'Analyst B',
+      source: 'library.institute.edu',
+      assignee: 'Admin',
       createdAt: new Date(Date.now() - 1000 * 60 * 67).toISOString(),
       updatedAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-      notes: ['Missing CSP and HSTS headers'],
+      notes: ['Missing CSP and HSTS headers on library portal'],
     },
   ],
   activity: [
@@ -77,6 +83,7 @@ export async function ensureStore() {
       users: existing.users?.length ? existing.users : seed.users,
       incidents: existing.incidents?.length ? existing.incidents : seed.incidents,
       activity: existing.activity?.length ? existing.activity : seed.activity,
+      studentRisks: existing.studentRisks || seed.studentRisks || [],
     };
     await writeFile(dbPath, JSON.stringify(merged, null, 2));
   } catch {
@@ -241,4 +248,58 @@ async function upsertIncident(incident) {
       incident.updatedAt || new Date().toISOString(),
     ],
   );
+}
+
+export async function createUser(id, name, email, role, hash) {
+  if (usePostgres) {
+    await ensureStore();
+    await pool.query(
+      `INSERT INTO users (id, name, email, role, password_hash) VALUES ($1, $2, $3, $4, $5)`,
+      [id, name, email, role, hash]
+    );
+  } else {
+    const db = await readDb();
+    db.users.push({ id, name, email, role, passwordHash: hash });
+    await writeDb(db);
+  }
+}
+
+export async function getStudents() {
+  if (usePostgres) {
+    await ensureStore();
+    const result = await pool.query(`SELECT id, name, email FROM users WHERE role = 'student'`);
+    return result.rows;
+  } else {
+    const db = await readDb();
+    return (db.users || []).filter(u => u.role === 'student').map(u => ({ id: u.id, name: u.name, email: u.email }));
+  }
+}
+
+export async function getStudentRisks() {
+  const db = await readDb();
+  return db.studentRisks || [];
+}
+
+export async function saveStudentRisks(risks) {
+  if (usePostgres) return; // not implemented for pg in this demo
+  const db = await readDb();
+  db.studentRisks = risks;
+  await writeDb(db);
+}
+
+export async function getBlockedIPs() {
+  const db = await readDb();
+  return db.blockedIPs || [];
+}
+
+export async function toggleBlockIP(ip, block) {
+  const db = await readDb();
+  db.blockedIPs = db.blockedIPs || [];
+  if (block && !db.blockedIPs.includes(ip)) {
+    db.blockedIPs.push(ip);
+  } else if (!block) {
+    db.blockedIPs = db.blockedIPs.filter(i => i !== ip);
+  }
+  await writeDb(db);
+  return db.blockedIPs;
 }

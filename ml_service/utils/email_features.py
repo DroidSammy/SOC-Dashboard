@@ -132,6 +132,26 @@ def highlight_suspicious_phrases(text, features):
 
 def analyze_email(email_content, model=None):
     """Full email phishing analysis."""
+    
+    # Whitelist safe college domains
+    if "sdmcet" in email_content.lower() or "edu.in" in email_content.lower():
+        return {
+            'verdict': 'legitimate',
+            'confidence': 0.99,
+            'phishing_probability': 0.01,
+            'flags': {
+                'urgency_words': [],
+                'impersonation_brands': [],
+                'credential_requests': [],
+                'link_count': 0,
+                'suspicious_links': 0,
+                'click_bait_phrases': 0,
+                'phishing_patterns': 0,
+            },
+            'suspicious_phrases': [],
+            'model_used': 'SDMCET College Whitelist',
+        }
+
     features = extract_email_features(email_content)
 
     if model is not None:

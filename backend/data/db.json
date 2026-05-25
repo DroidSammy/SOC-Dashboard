@@ -6,6 +6,27 @@
       "email": "analyst@soc.local",
       "role": "analyst",
       "passwordHash": "$2a$10$i7I9ELhmjnTugp8dGiO.9.ovKj60T8fEbTCBTPb.kUbpUdGGzpL/O"
+    },
+    {
+      "id": "student-1",
+      "name": "John Doe (Student)",
+      "email": "student@institute.edu",
+      "role": "student",
+      "passwordHash": "mock"
+    },
+    {
+      "id": "student-2",
+      "name": "Alice Smith (Student)",
+      "email": "alice@institute.edu",
+      "role": "student",
+      "passwordHash": "mock"
+    },
+    {
+      "id": "student-3",
+      "name": "Bob Jones (Student)",
+      "email": "bob@institute.edu",
+      "role": "student",
+      "passwordHash": "mock"
     }
   ],
   "incidents": [
@@ -96,6 +117,48 @@
       "text": "Demo incident storage loaded",
       "severity": "low",
       "time": "2026-05-08T17:31:16.745Z"
+    }
+  ],
+  "studentRisks": [
+    {
+      "id": "faculty-1",
+      "name": "Prof. Smith (Faculty)",
+      "department": "Faculty",
+      "riskScore": 8,
+      "bandwidthGB": "1.2",
+      "anomalousLogins": 0,
+      "trend": "stable",
+      "events": []
+    },
+    {
+      "id": "student-1",
+      "name": "John Doe (Student)",
+      "department": "Computer Science",
+      "riskScore": 12,
+      "bandwidthGB": "4.5",
+      "anomalousLogins": 0,
+      "trend": "stable",
+      "events": []
+    },
+    {
+      "id": "student-2",
+      "name": "Alice Smith (Student)",
+      "department": "Library",
+      "riskScore": 5,
+      "bandwidthGB": "0.8",
+      "anomalousLogins": 0,
+      "trend": "stable",
+      "events": []
+    },
+    {
+      "id": "student-3",
+      "name": "Bob Jones (Student)",
+      "department": "Engineering",
+      "riskScore": 18,
+      "bandwidthGB": "2.1",
+      "anomalousLogins": 0,
+      "trend": "stable",
+      "events": []
     }
   ]
 }

@@ -8,7 +8,9 @@ import jwt from 'jsonwebtoken';
 import morgan from 'morgan';
 import PDFDocument from 'pdfkit';
 import { Server } from 'socket.io';
-import { cves, hourlyActivity, weeklyThreats } from './demoData.js';
+import { spawn } from 'node:child_process';
+import { cves, hourlyActivity, weeklyThreats, labStatus, studentRisks } from './demoData.js';
+import { runLocalNetworkSweep, runLiveNetworkSniffer } from './scanner.js';
 import {
   checkGoogleSafeBrowsing,
   checkVirusTotalUrl,
@@ -16,6 +18,7 @@ import {
   getAbuseIpThreats,
   searchNvd,
   explainEmailWithChatGPT,
+  askCyberAdvisorWithChatGPT,
 } from './externalApis.js';
 import {
   analyzeEmail,
@@ -27,11 +30,17 @@ import {
 import {
   addActivity,
   createIncident,
+  createUser,
   ensureStore,
+  getStudents,
+  getStudentRisks,
+  saveStudentRisks,
   nextIncidentId,
   readDb,
   storageMode,
   updateIncident,
+  getBlockedIPs,
+  toggleBlockIP,
 } from './store.js';
 
 const app = express();
@@ -95,9 +104,12 @@ async function logActivity(text, severity = 'low') {
 
 async function proxyToMl(path, payload, fallback) {
   try {
-    const { data } = await axios.post(`${mlServiceUrl}${path}`, payload, { timeout: 12000 });
+    const { data } = await axios.post(`${mlServiceUrl}${path}`, payload, { timeout: 60000 });
     return { data, source: 'ml-service' };
-  } catch {
+  } catch (error) {
+    if (error.response && error.response.data) {
+      return { data: error.response.data, source: 'ml-service' };
+    }
     return { data: fallback(), source: 'node-fallback' };
   }
 }
@@ -126,6 +138,64 @@ app.get('/health', async (_req, res) => {
   });
 });
 
+app.get('/api/labs/status', (req, res) => res.json(labStatus));
+app.get('/api/students/risk', async (req, res) => {
+  const dbStudents = await getStudents();
+  let dbRisks = await getStudentRisks();
+  let changed = false;
+  
+  const depts = ['Computer Science', 'Administration', 'Library', 'Engineering'];
+  
+  for (const stu of dbStudents) {
+    if (!dbRisks.find(r => r.id === stu.id)) {
+      dbRisks.push({
+        id: stu.id,
+        name: stu.name,
+        department: depts[Math.floor(Math.random() * depts.length)],
+        riskScore: Math.floor(Math.random() * 30),
+        bandwidthGB: (Math.random() * 5).toFixed(1),
+        anomalousLogins: 0,
+        trend: 'stable',
+        events: []
+      });
+      changed = true;
+    }
+  }
+  
+  if (changed) await saveStudentRisks(dbRisks);
+  
+  res.json(dbRisks);
+});
+
+app.post('/api/labs/scan', async (req, res) => {
+  const targetIp = req.body.ip;
+  const devices = await runLocalNetworkSweep(targetIp);
+  res.json({ status: 'success', devices });
+});
+
+app.post('/api/students/scan', async (req, res) => {
+  let dbRisks = await getStudentRisks();
+  if (dbRisks.length === 0) {
+    return res.json([]);
+  }
+  // Simulate a live UEBA alert by finding a random real student and increasing their risk score
+  const studentIndex = Math.floor(Math.random() * dbRisks.length);
+  const targetStudent = dbRisks[studentIndex];
+  
+  targetStudent.riskScore = Math.min(100, targetStudent.riskScore + 35);
+  targetStudent.anomalousLogins += 1;
+  targetStudent.bandwidthGB = (parseFloat(targetStudent.bandwidthGB) + (Math.random() * 2)).toFixed(1);
+  targetStudent.trend = 'up';
+  targetStudent.events.unshift('Live Alert: Attempted SQL Injection on Library Portal');
+  
+  await saveStudentRisks(dbRisks);
+  
+  await logActivity(`Live UEBA Alert triggered for ${targetStudent.name} (${targetStudent.id})`, 'high');
+  res.json(dbRisks);
+});
+
+const otps = {}; // Store temporary OTPs
+
 app.post('/api/auth/login', async (req, res) => {
   const email = String(req.body.email || '').toLowerCase().trim();
   const password = String(req.body.password || '');
@@ -137,11 +207,39 @@ app.post('/api/auth/login', async (req, res) => {
     return;
   }
 
-  await logActivity(`${user.name} logged in`, 'low');
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  otps[email] = otp;
+
+  // Send push notification to phone as the "Intrusive" step
+  axios.post('https://ntfy.sh/soc-dashboard-demo-sameer', 
+    `🔐 Login OTP for ${user.name}: ${otp}`, 
+    { headers: { 'Title': 'SOC Sentinel Auth', 'Tags': 'key' } }
+  ).catch(() => {});
+
+  res.json({ requireOtp: true, email: user.email });
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  const email = String(req.body.email || '').toLowerCase().trim();
+  const otp = String(req.body.otp || '').trim();
+
+  if (!otps[email] || otps[email] !== otp) {
+    res.status(401).json({ error: 'Invalid or expired OTP' });
+    return;
+  }
+
+  // Clear OTP
+  delete otps[email];
+
+  const db = await readDb();
+  const user = (db.users || []).find((item) => item.email.toLowerCase() === email);
+
+  await logActivity(`${user.name} logged in securely`, 'low');
 
   // Send push notification to phone
   axios.post('https://ntfy.sh/soc-dashboard-demo-sameer', 
-    `🚨 Successful login by ${user.name} (${user.email})`, 
+    `🚨 Successful secure login by ${user.name} (${user.email})`, 
     { headers: { 'Title': 'SOC Sentinel Alert', 'Tags': 'warning,desktop_computer' } }
   ).catch(() => {});
 
@@ -152,9 +250,15 @@ app.post('/api/auth/register', async (req, res) => {
   const email = String(req.body.email || '').toLowerCase().trim();
   const password = String(req.body.password || '');
   const name = String(req.body.name || '').trim();
+  const role = String(req.body.role || 'student').toLowerCase();
 
   if (!email || !password || !name) {
     res.status(400).json({ error: 'Name, email, and password are required' });
+    return;
+  }
+
+  if (!['faculty', 'student'].includes(role)) {
+    res.status(400).json({ error: 'Role must be either faculty or student' });
     return;
   }
 
@@ -167,12 +271,9 @@ app.post('/api/auth/register', async (req, res) => {
       res.status(409).json({ error: 'Email already exists' });
       return;
     }
-    await pool.query(
-      `INSERT INTO users (id, name, email, role, password_hash) VALUES ($1, $2, $3, $4, $5)`,
-      [id, name, email, 'analyst', hash]
-    );
-    const user = { id, name, email, role: 'analyst' };
-    await logActivity(`New user registered: ${name}`, 'low');
+    await createUser(id, name, email, role, hash);
+    const user = { id, name, email, role };
+    await logActivity(`New user registered: ${name} (${role})`, 'low');
 
     // Send push notification to phone
     axios.post('https://ntfy.sh/soc-dashboard-demo-sameer', 
@@ -369,11 +470,79 @@ app.post('/scan/vulnerability', async (req, res) => {
   res.json({ ...result.data, source: result.source });
 });
 
+app.post('/api/gmail/scan', async (req, res) => {
+  const result = await proxyToMl('/predict/gmail', req.body, () => ({
+    emails: [], error: 'ML Service offline'
+  }));
+  if (!result.data.error && result.data.emails) {
+    await logActivity(`Synced and scanned ${result.data.emails.length} live Gmail messages`, 'medium');
+  }
+  res.json({ ...result.data, source: result.source });
+});
+
+app.post('/api/chat', async (req, res) => {
+  const question = String(req.body.question || '');
+  const answer = await askCyberAdvisorWithChatGPT(question);
+  await logActivity(`Student requested AI Cyber advice`, 'low');
+  res.json({ answer });
+});
+
+const blockerProcesses = {};
+
+app.post('/api/network/block', async (req, res) => {
+  const { ip, block } = req.body;
+  const blockedIPs = await toggleBlockIP(ip, block);
+
+  if (block) {
+    if (!blockerProcesses[ip]) {
+      const ipParts = ip.split('.');
+      if (ipParts.length === 4) {
+        // Assume gateway is .1
+        const gateway = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.1`;
+        console.log(`Spawning real blocker for ${ip} via gateway ${gateway}`);
+        
+        // Resolve absolute path to ml_service/real_blocker.py
+        const blockerScript = new URL('../../ml_service/real_blocker.py', import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, '$1');
+        
+        const blocker = spawn('python', [blockerScript, ip, gateway]);
+        
+        blocker.stdout.on('data', (data) => console.log(`[Blocker ${ip}]: ${data}`));
+        blocker.stderr.on('data', (data) => console.error(`[Blocker ERR ${ip}]: ${data}`));
+        
+        blockerProcesses[ip] = blocker;
+      }
+    }
+  } else {
+    if (blockerProcesses[ip]) {
+      console.log(`Stopping real blocker for ${ip}`);
+      blockerProcesses[ip].kill('SIGINT');
+      delete blockerProcesses[ip];
+    }
+  }
+
+  res.json({ success: true, blockedIPs });
+});
+
+app.get('/api/network/blocked', async (req, res) => {
+  const blockedIPs = await getBlockedIPs();
+  res.json({ blockedIPs });
+});
+
 app.post('/predict/network', async (req, res) => {
   const features = req.body.features || {};
+  let live_packets = [];
+  const blockedIPs = await getBlockedIPs();
+  
+  if (features.mode === 'live') {
+    live_packets = await runLiveNetworkSniffer();
+    // Filter out packets from or to blocked IPs to simulate a real firewall block
+    live_packets = live_packets.filter(pkt => !blockedIPs.some(blocked => pkt.includes(blocked)));
+  }
+  
   const result = await proxyToMl('/predict/network', { features }, () => analyzeNetwork(features));
   const pps = Number(features.packets_per_second || 0);
   const uniquePorts = Number(features.unique_ports || 0);
+  
   if (!result.data.is_anomaly && (pps > 300 || uniquePorts > 50)) {
     result.data = {
       ...result.data,
@@ -383,8 +552,12 @@ app.post('/predict/network', async (req, res) => {
       rule_override: 'High packet rate or broad port access detected',
     };
   }
-  await logActivity(result.data.is_anomaly ? 'Network anomaly detected' : 'Network traffic normal', result.data.severity || 'low');
-  res.json({ ...result.data, source: result.source });
+  
+  if (result.data.is_anomaly) {
+    await logActivity('Network anomaly detected', result.data.severity || 'low');
+  }
+  
+  res.json({ ...result.data, source: result.source, live_packets, blockedIPs });
 });
 
 io.on('connection', async (socket) => {

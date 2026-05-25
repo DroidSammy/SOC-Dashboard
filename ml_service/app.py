@@ -20,6 +20,7 @@ from utils.email_features import analyze_email
 from utils.password_checker import analyze_password
 from utils.vuln_scanner import scan_target
 from utils.live_sniffer import start_sniffer, get_live_features
+from utils.gmail_sync import fetch_recent_emails
 
 app = Flask(__name__)
 CORS(app)
@@ -91,6 +92,34 @@ def predict_url_route():
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e), 'verdict': 'unknown', 'confidence': 0}), 500
+
+
+# ──────────────────────────────────────────────────────────
+# Gmail IMAP Fetch & Predict
+# ──────────────────────────────────────────────────────────
+@app.route('/predict/gmail', methods=['POST'])
+def predict_gmail_route():
+    data = request.get_json()
+    username = data.get('username')
+    app_password = data.get('app_password')
+    
+    if not username or not app_password:
+        return jsonify({'error': 'Username and app_password required'}), 400
+        
+    result = fetch_recent_emails(username, app_password, max_emails=50)
+    
+    if 'error' in result:
+        return jsonify(result), 500
+        
+    # Process each email through our ML model
+    for email_data in result.get('emails', []):
+        combined_text = f"{email_data.get('subject', '')} {email_data.get('body', '')}"
+        ml_result = analyze_email(combined_text, EMAIL_MODEL)
+        email_data['ml_verdict'] = ml_result.get('verdict', 'unknown')
+        email_data['ml_confidence'] = ml_result.get('confidence', 0)
+        email_data['ml_spam_probability'] = ml_result.get('spam_probability', 0)
+        
+    return jsonify(result)
 
 
 # ──────────────────────────────────────────────────────────

@@ -169,7 +169,9 @@ export function combineUrlVerdicts(localResult, virusTotal, safeBrowsing) {
 
 export async function explainEmailWithChatGPT(emailText, verdict) {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return null;
+  if (!key || key.includes("sk-fake")) {
+    return explainEmailFallback(emailText, verdict);
+  }
 
   try {
     const openai = new OpenAI({ apiKey: key });
@@ -185,6 +187,58 @@ export async function explainEmailWithChatGPT(emailText, verdict) {
     return response.choices[0]?.message?.content?.trim() || null;
   } catch (error) {
     console.error("OpenAI API Error:", error.message);
-    return "Error generating AI explanation. Check OpenAI API configuration.";
+    return explainEmailFallback(emailText, verdict);
   }
+}
+
+function explainEmailFallback(emailText, verdict) {
+  const lower = emailText.toLowerCase();
+  if (verdict === 'phishing' || verdict === 'suspicious') {
+    if (lower.includes('urgent') || lower.includes('immediately')) {
+      return "This email employs artificial urgency, a classic social engineering tactic designed to panic the recipient into acting without thinking.";
+    }
+    if (lower.includes('password') || lower.includes('verify') || lower.includes('login')) {
+      return "The email explicitly requests credential verification or sensitive information. Legitimate organizations will never ask for your password via email.";
+    }
+    return "This email exhibits multiple traits of a phishing attempt, including suspicious domain routing, potential impersonation, or unexpected attachments.";
+  }
+  return "This email appears to be legitimate. It lacks common phishing indicators such as suspicious links, malicious attachments, or high-pressure language.";
+}
+
+export async function askCyberAdvisorWithChatGPT(question) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key || key.includes("sk-fake")) {
+    return getChatbotFallback(question);
+  }
+
+  try {
+    const openai = new OpenAI({ apiKey: key });
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'You are a helpful, professional cybersecurity advisor for students. Keep your answers concise, practical, and easy to understand.' },
+        { role: 'user', content: question }
+      ],
+      temperature: 0.7,
+      max_tokens: 300,
+    });
+    return response.choices[0]?.message?.content?.trim() || "I'm sorry, I couldn't generate a response.";
+  } catch (error) {
+    console.error("OpenAI API Error:", error.message);
+    return getChatbotFallback(question);
+  }
+}
+
+function getChatbotFallback(question) {
+  const lowerQ = question.toLowerCase();
+  if (lowerQ.includes("password")) return "A strong password should be at least 12 characters long, include a mix of uppercase, lowercase, numbers, and symbols. I highly recommend using a trusted Password Manager and enabling 2FA on all accounts.";
+  if (lowerQ.includes("phishing") || lowerQ.includes("scam")) return "Always check the exact sender's email address. Phishing emails often contain spelling errors, demand urgent action, or ask for passwords/payments. Verify the request through an official, secondary channel before clicking any links.";
+  if (lowerQ.includes("usb") || lowerQ.includes("flash drive")) return "Never plug an unknown USB drive into your computer! Attackers often drop 'rogue USBs' in public places. They can be programmed to automatically install malware, execute scripts (like a Rubber Ducky), or steal your session tokens as soon as they are connected.";
+  if (lowerQ.includes("vpn") || lowerQ.includes("public wifi")) return "When using public Wi-Fi (like at a cafe or airport), your data can be intercepted by anyone on the network. Using a Virtual Private Network (VPN) creates an encrypted tunnel for your traffic, keeping your browsing secure.";
+  if (lowerQ.includes("ransomware")) return "Ransomware is malware that encrypts your files and demands payment to unlock them. The best defense is regular offline backups (3-2-1 backup rule) and never downloading attachments from unverified sources.";
+  if (lowerQ.includes("firewall") || lowerQ.includes("port")) return "A firewall monitors and filters incoming and outgoing network traffic based on security rules. By blocking unnecessary ports (like port 22 for SSH or 3389 for RDP), we prevent attackers from gaining unauthorized access to our campus servers.";
+  if (lowerQ.includes("social engineering") || lowerQ.includes("vishing")) return "Social engineering is hacking the human, not the computer. Vishing (voice phishing) is when attackers call you pretending to be IT support to trick you into revealing passwords. Real IT will never ask for your password!";
+  if (lowerQ.includes("malware") || lowerQ.includes("virus")) return "Malware (malicious software) includes viruses, worms, and trojans designed to damage or disrupt systems. Keep your OS and antivirus updated, and only install software from trusted sources.";
+  
+  return "That's a great question! For a college environment, always prioritize the Principle of Least Privilege: only give users the access they absolutely need. If you encounter something suspicious, report it to the IT Helpdesk immediately.";
 }

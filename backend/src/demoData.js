@@ -32,3 +32,12 @@ export const cves = [
 
 export const weeklyThreats = [21, 34, 28, 45, 39, 52, 47];
 export const hourlyActivity = [4, 7, 16, 20, 15, 9];
+
+export const labStatus = [
+  { id: 'CS-101', name: 'CS Programming Lab 1', status: 'normal', activeUsers: 24, lastAlert: null },
+  { id: 'LIB-MAC', name: 'Library Mac Lab', status: 'alert', activeUsers: 8, lastAlert: 'Unauthorized BitTorrent process detected' },
+  { id: 'ENG-304', name: 'Engineering CAD Lab', status: 'warning', activeUsers: 2, lastAlert: 'After-hours login by generic admin account' },
+  { id: 'BIO-201', name: 'Bioinformatics Lab', status: 'normal', activeUsers: 14, lastAlert: null },
+];
+
+export const studentRisks = [];

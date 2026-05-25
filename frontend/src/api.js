@@ -21,7 +21,8 @@ async function postJson(path, payload) {
 
 export const api = {
   login: (email, password) => postJson('/api/auth/login', { email, password }),
-  register: (name, email, password) => postJson('/api/auth/register', { name, email, password }),
+  verifyOtp: (email, otp) => postJson('/api/auth/verify-otp', { email, otp }),
+  register: (name, email, password, role) => postJson('/api/auth/register', { name, email, password, role }),
   me: async () => {
     const response = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
     if (!response.ok) throw new Error('Not authenticated');
@@ -58,8 +59,22 @@ export const api = {
     if (!response.ok) throw new Error('CVE API failed');
     return response.json();
   },
+  labs: async () => {
+    const response = await fetch(`${API_BASE}/api/labs/status`);
+    if (!response.ok) throw new Error('Labs API failed');
+    return response.json();
+  },
+  scanGmail: (credentials) => postJson('/api/gmail/scan', credentials),
+  scanLab: (targetIp) => postJson('/api/labs/scan', { ip: targetIp }),
+  scanStudents: () => postJson('/api/students/scan', {}),
+  studentRisks: async () => {
+    const response = await fetch(`${API_BASE}/api/students/risk`);
+    if (!response.ok) throw new Error('Student Risks API failed');
+    return response.json();
+  },
   predictUrl: (url) => postJson('/predict/url', { url }),
   predictEmail: (email_content) => postJson('/predict/email', { email_content }),
+  chat: (question) => postJson('/api/chat', { question }),
   analyzePassword: (password) => postJson('/analyze/password', { password }),
   checkBreach: (password) => postJson('/check/breach', { password }),
   scanVulnerability: (target_url) => postJson('/scan/vulnerability', { target_url }),
@@ -72,6 +87,12 @@ export const api = {
     });
     if (!response.ok) throw new Error('Report generation failed');
     return response.blob();
+  },
+  blockNetworkIP: (ip, block) => postJson('/api/network/block', { ip, block }),
+  getBlockedIPs: async () => {
+    const response = await fetch(`${API_BASE}/api/network/blocked`);
+    if (!response.ok) return { blockedIPs: [] };
+    return response.json();
   },
 };
 

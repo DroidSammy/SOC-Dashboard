@@ -27,14 +27,22 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 
 INSERT INTO users (id, name, email, role, password_hash)
-VALUES (
-  'user-1',
-  'SOC Analyst',
-  'analyst@soc.local',
-  'analyst',
+VALUES 
+(
+  'faculty-1',
+  'Prof. Smith (Faculty)',
+  'faculty@institute.edu',
+  'faculty',
+  '$2a$10$i7I9ELhmjnTugp8dGiO.9.ovKj60T8fEbTCBTPb.kUbpUdGGzpL/O'
+),
+(
+  'student-1',
+  'John Doe (Student)',
+  'student@institute.edu',
+  'student',
   '$2a$10$i7I9ELhmjnTugp8dGiO.9.ovKj60T8fEbTCBTPb.kUbpUdGGzpL/O'
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO incidents (id, type, severity, status, source, assignee, notes, created_at, updated_at)
 VALUES

@@ -81,55 +81,19 @@ except Exception as e:
 # ──────────────────────────────────────────────────────────
 print("\n[2/3] Training Email Phishing Detection Model...")
 
-LEGIT_EMAILS = [
-    "Hi team, please find the meeting notes attached. We'll discuss the Q3 results next Tuesday at 2pm. Let me know if you have any questions.",
-    "Your order has been shipped! Track your package at our website. Estimated delivery: 3-5 business days.",
-    "Thank you for your subscription. Your next billing date is March 15th. You can manage your account in the settings.",
-    "Reminder: your dentist appointment is scheduled for tomorrow at 10am. Call us if you need to reschedule.",
-    "Hi, I wanted to follow up on our conversation from yesterday. Could you send me the report when you get a chance?",
-    "Your password was successfully changed. If you did not make this change, please contact support.",
-    "Welcome to the team! Your onboarding session starts Monday at 9am. Please bring a photo ID.",
-    "Newsletter: This month's top articles on machine learning and AI. Click to read more.",
-    "Payment received. Thank you for your purchase of $29.99. Your receipt is attached.",
-    "Project update: The development team has completed sprint 5. Review the progress report here.",
-]
+print("   Downloading/Loading dataset from HuggingFace (SetFit/enron_spam)...")
+try:
+    ds_email = load_dataset("SetFit/enron_spam", split="train")
+    ds_email = ds_email.shuffle(seed=42).select(range(5000))
+    
+    print(f"   Loaded {len(ds_email)} real-world emails for training.")
+    
+    X_email = [row['text'] for row in ds_email]
+    y_email = np.array([row['label'] for row in ds_email])
 
-PHISHING_EMAILS = [
-    "URGENT: Your PayPal account has been suspended! Verify your identity immediately at http://paypal-verify.tk or your account will be permanently closed within 24 hours. Click here to verify now!",
-    "Dear Customer, We detected unusual activity on your Amazon account. Please click the link below to verify your credentials: http://amazon-secure.ml/login. Failure to verify will result in account suspension.",
-    "Your Apple ID has been locked due to suspicious activity. Confirm your identity by clicking the link below or your account will be permanently deleted. Update your information: http://apple-id.online/confirm",
-    "IRS NOTICE: You are eligible for a tax refund of $1,200. To claim your refund immediately, provide your Social Security Number and bank account details at http://irs-refund.ga/claim",
-    "Microsoft Security Alert: Your account credentials have been compromised. To prevent unauthorized access, update your password immediately by clicking here. Act now to secure your account!",
-    "WINNER NOTICE: You have been selected to receive a $500 Amazon gift card! Click here to claim your prize before it expires in 24 hours. Provide your address and credit card number for verification.",
-    "Bank Security Notice: We detected a login from an unusual location. Verify your identity to prevent account suspension. Enter your username, password, and PIN at our secure page immediately.",
-    "Netflix Billing Failed: Your payment method has been declined. Update your billing information to continue your subscription. Click here: http://netflix-update.xyz/billing - Act within 48 hours!",
-    "Dear User, Your email storage is full (100%). Click the link to verify your account and expand your storage immediately or your account will be deactivated: http://gmail-verify.ml",
-    "FEDEX DELIVERY ALERT: Your package could not be delivered. Pay a $2.99 redelivery fee here: http://fedex-redelivery.tk. Package will be returned in 24 hours if fee not paid.",
-]
-
-# Generate more synthetic emails
-for _ in range(30):
-    brand = random.choice(['PayPal', 'Amazon', 'Google', 'Apple', 'Microsoft', 'your bank'])
-    urgency = random.choice(['urgent', 'immediate action required', 'act now'])
-    PHISHING_EMAILS.append(
-        f"URGENT: Your {brand} account requires {urgency}! "
-        f"Verify your credentials immediately or your account will be suspended. "
-        f"Click here to verify: http://verify-now.{random.choice(['tk','ml','xyz'])}/login "
-        f"Provide your username, password, and date of birth."
-    )
-
-for _ in range(30):
-    topic = random.choice(['project', 'meeting', 'invoice', 'report', 'update'])
-    LEGIT_EMAILS.append(
-        f"Hi, I wanted to share the latest {topic} with you. "
-        f"Please review when you get a chance and let me know your feedback. "
-        f"We can discuss further in our next meeting. Thanks!"
-    )
-
-all_emails = [(e, 0) for e in LEGIT_EMAILS] + [(e, 1) for e in PHISHING_EMAILS]
-random.shuffle(all_emails)
-X_email = [e[0] for e in all_emails]
-y_email = np.array([e[1] for e in all_emails])
+except Exception as e:
+    print(f"   ❌ Failed to load email dataset: {e}")
+    X_email, y_email = [], []
 
 email_pipeline = Pipeline([
     ('tfidf', TfidfVectorizer(max_features=5000, ngram_range=(1, 2), sublinear_tf=True)),
@@ -150,33 +114,47 @@ print("   ✅ Email model saved → models/email_model.pkl")
 # ──────────────────────────────────────────────────────────
 print("\n[3/3] Training Network Anomaly Detection Model...")
 
-np.random.seed(42)
-# Normal traffic
-n_normal = 1000
-normal_data = np.column_stack([
-    np.random.normal(50, 15, n_normal),     # packets_per_second
-    np.random.normal(70000, 20000, n_normal),# bytes_per_second
-    np.random.uniform(0.5, 0.7, n_normal),  # tcp_ratio
-    np.random.uniform(0.2, 0.4, n_normal),  # udp_ratio
-    np.random.uniform(0.05, 0.15, n_normal),# icmp_ratio
-    np.random.randint(1, 5, n_normal),       # unique_ports
-    np.random.normal(1400, 200, n_normal),   # avg_packet_size
-])
-normal_data = np.clip(normal_data, 0, None)
+print("   Downloading/Loading dataset from HuggingFace (Mireu-Lab/NSL-KDD)...")
+try:
+    ds_network = load_dataset("Mireu-Lab/NSL-KDD", split="train")
+    ds_network = ds_network.shuffle(seed=42).select(range(10000))
+    
+    print(f"   Loaded {len(ds_network)} real-world network connections for training.")
+    
+    X_network = []
+    # Mireu-Lab/NSL-KDD columns: duration, protocol_type, service, flag, src_bytes, dst_bytes, ... class
+    for row in ds_network:
+        protocol = str(row.get('protocol_type', '')).lower()
+        count = float(row.get('count', 0))
+        src_bytes = float(row.get('src_bytes', 0))
+        dst_bytes = float(row.get('dst_bytes', 0))
+        srv_count = float(row.get('srv_count', 1))
+        
+        # Map NSL-KDD to our dashboard's expected feature vector
+        packets_per_second = count
+        bytes_per_second = src_bytes + dst_bytes
+        tcp_ratio = 1.0 if protocol == 'tcp' else 0.0
+        udp_ratio = 1.0 if protocol == 'udp' else 0.0
+        icmp_ratio = 1.0 if protocol == 'icmp' else 0.0
+        unique_ports = srv_count
+        avg_packet_size = (src_bytes + dst_bytes) / max(1.0, count)
+        
+        feature_vector = [
+            packets_per_second,
+            bytes_per_second,
+            tcp_ratio,
+            udp_ratio,
+            icmp_ratio,
+            unique_ports,
+            avg_packet_size
+        ]
+        X_network.append(feature_vector)
+        
+    X_network = np.array(X_network)
 
-# Anomaly traffic (for contamination)
-n_anomaly = 100
-anomaly_data = np.column_stack([
-    np.random.uniform(500, 2000, n_anomaly),  # packets_per_second (spike)
-    np.random.uniform(700000, 3000000, n_anomaly),
-    np.random.uniform(0.0, 0.3, n_anomaly),
-    np.random.uniform(0.7, 1.0, n_anomaly),
-    np.random.uniform(0.0, 0.05, n_anomaly),
-    np.random.randint(50, 1024, n_anomaly),
-    np.random.uniform(40, 100, n_anomaly),    # tiny packets = port scan
-])
-
-X_network = np.vstack([normal_data, anomaly_data])
+except Exception as e:
+    print(f"   ❌ Failed to load network dataset: {e}")
+    X_network = np.random.normal(50, 15, (100, 7))
 
 network_model = IsolationForest(n_estimators=100, contamination=0.08, random_state=42)
 network_model.fit(X_network)
