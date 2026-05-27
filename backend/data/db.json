@@ -9,22 +9,29 @@
     },
     {
       "id": "student-1",
-      "name": "John Doe (Student)",
+      "name": "Sameer Singh (Student)",
       "email": "student@institute.edu",
       "role": "student",
       "passwordHash": "mock"
     },
     {
       "id": "student-2",
-      "name": "Alice Smith (Student)",
+      "name": "Vishakha Chargotra (Student)",
       "email": "alice@institute.edu",
       "role": "student",
       "passwordHash": "mock"
     },
     {
       "id": "student-3",
-      "name": "Bob Jones (Student)",
+      "name": "Vikas Harti (Student)",
       "email": "bob@institute.edu",
+      "role": "student",
+      "passwordHash": "mock"
+    },
+    {
+      "id": "student-4",
+      "name": "Ankush Jamwal (Student)",
+      "email": "ankush@institute.edu",
       "role": "student",
       "passwordHash": "mock"
     }
@@ -122,7 +129,7 @@
   "studentRisks": [
     {
       "id": "faculty-1",
-      "name": "Prof. Smith (Faculty)",
+      "name": "Sameer Singh (Student)",
       "department": "Faculty",
       "riskScore": 8,
       "bandwidthGB": "1.2",
@@ -132,17 +139,19 @@
     },
     {
       "id": "student-1",
-      "name": "John Doe (Student)",
+      "name": "Vishakha Chargotra (Student)",
       "department": "Computer Science",
-      "riskScore": 12,
+      "riskScore": 37,
       "bandwidthGB": "4.5",
       "anomalousLogins": 0,
-      "trend": "stable",
-      "events": []
+      "trend": "up",
+      "events": [
+        "Critical: Visited Phishing URL: paypal-secure-login.tk"
+      ]
     },
     {
       "id": "student-2",
-      "name": "Alice Smith (Student)",
+      "name": "Vikas Harti (Student)",
       "department": "Library",
       "riskScore": 5,
       "bandwidthGB": "0.8",
@@ -152,10 +161,20 @@
     },
     {
       "id": "student-3",
-      "name": "Bob Jones (Student)",
+      "name": "Ankush Jamwal (Student)",
       "department": "Engineering",
       "riskScore": 18,
       "bandwidthGB": "2.1",
+      "anomalousLogins": 0,
+      "trend": "stable",
+      "events": []
+    },
+    {
+      "id": "student-4",
+      "name": "Ankush Jamwal (Student)",
+      "department": "Information Technology",
+      "riskScore": 2,
+      "bandwidthGB": "0.3",
       "anomalousLogins": 0,
       "trend": "stable",
       "events": []

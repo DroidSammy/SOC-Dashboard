@@ -194,6 +194,38 @@ app.post('/api/students/scan', async (req, res) => {
   res.json(dbRisks);
 });
 
+app.post('/api/students/track-dns', async (req, res) => {
+  const { ip, domain } = req.body;
+  let dbRisks = await getStudentRisks();
+  
+  if (dbRisks.length === 0) {
+    return res.status(404).json({ error: 'No students found' });
+  }
+
+  // Map IP to a student consistently based on the last octet of the IP
+  let ipNumber = parseInt((ip || '0').split('.').pop(), 10);
+  if (isNaN(ipNumber)) ipNumber = Math.floor(Math.random() * dbRisks.length);
+  
+  const studentIndex = ipNumber % dbRisks.length;
+  const targetStudent = dbRisks[studentIndex];
+  
+  targetStudent.riskScore = Math.min(100, targetStudent.riskScore + 25);
+  targetStudent.trend = 'up';
+  
+  const newEvent = `Critical: Visited Phishing URL: ${domain}`;
+  if (targetStudent.events[0] !== newEvent) {
+    targetStudent.events.unshift(newEvent);
+  }
+  
+  // Keep event list manageable
+  targetStudent.events = targetStudent.events.slice(0, 5);
+  
+  await saveStudentRisks(dbRisks);
+  await logActivity(`DNS Alert: ${targetStudent.name} requested malicious domain ${domain}`, 'high');
+  
+  res.json({ success: true, mappedTo: targetStudent.name });
+});
+
 const otps = {}; // Store temporary OTPs
 
 app.post('/api/auth/login', async (req, res) => {

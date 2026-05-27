@@ -276,15 +276,24 @@ export async function getStudents() {
 }
 
 export async function getStudentRisks() {
-  const db = await readDb();
-  return db.studentRisks || [];
+  try {
+    const raw = await readFile(dbPath, 'utf8');
+    const db = JSON.parse(raw);
+    return db.studentRisks || [];
+  } catch {
+    return [];
+  }
 }
 
 export async function saveStudentRisks(risks) {
-  if (usePostgres) return; // not implemented for pg in this demo
-  const db = await readDb();
-  db.studentRisks = risks;
-  await writeDb(db);
+  try {
+    const raw = await readFile(dbPath, 'utf8');
+    const db = JSON.parse(raw);
+    db.studentRisks = risks;
+    await writeFile(dbPath, JSON.stringify(db, null, 2));
+  } catch (err) {
+    console.error('Failed to save student risks:', err);
+  }
 }
 
 export async function getBlockedIPs() {

@@ -23,6 +23,9 @@ import {
   GraduationCap
 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { auth } from './firebase';
+
 import {
   ArcElement,
   BarElement,
@@ -134,6 +137,219 @@ const chartText = '#94a3b8';
 const chartGrid = 'rgba(148, 163, 184, 0.14)';
 
 function LoginScreen({ onLogin }) {
+  const [loginMode, setLoginMode] = useState('student'); // 'student' | 'faculty'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [showOtp, setShowOtp] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState(null);
+
+  const setupRecaptcha = () => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+      });
+    }
+  };
+
+  const handleFacultySubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      if (showOtp && confirmationResult) {
+        const result = await confirmationResult.confirm(otp);
+        onLogin({ id: result.user.uid, name: 'Faculty Member', email: result.user.phoneNumber, role: 'faculty' });
+      } else {
+        setupRecaptcha();
+        const appVerifier = window.recaptchaVerifier;
+        const result = await signInWithPhoneNumber(auth, phone, appVerifier);
+        setConfirmationResult(result);
+        setShowOtp(true);
+      }
+    } catch (err) {
+      setError(err.message || 'Phone authentication failed.');
+      if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStudentSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      if (showOtp) {
+        const data = await api.verifyOtp(email, otp);
+        localStorage.setItem('soc_token', data.token);
+        localStorage.setItem('soc_user', JSON.stringify(data.user));
+        onLogin(data.user);
+      } else {
+        const data = await api.login(email, password);
+        if (data.requireOtp) {
+          setShowOtp(true);
+        } else {
+          localStorage.setItem('soc_token', data.token);
+          localStorage.setItem('soc_user', JSON.stringify(data.user));
+          onLogin(data.user);
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = (credentialResponse) => {
+    try {
+      const payload = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
+      onLogin({ id: `google-${Date.now()}`, name: payload.name || payload.email.split('@')[0], email: payload.email, role: 'student' });
+    } catch(e) {
+      onLogin({ id: `google-${Date.now()}`, name: 'Google User', email: 'google@student.edu', role: 'student' });
+    }
+  };
+
+  return (
+    <div className="flex h-full w-full bg-soc-bg text-slate-100 overflow-hidden">
+      <div id="recaptcha-container"></div>
+      
+      {/* Left Pane - Premium Branding */}
+      <div className="hidden lg:flex w-1/2 bg-[#08111f] flex-col justify-between p-12 border-r border-soc-border/50 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-soc-accent/20 via-[#08111f] to-[#08111f] z-0"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-16">
+            <div className="grid h-12 w-12 place-items-center rounded-xl bg-soc-accent/10 border border-soc-accent/30 backdrop-blur">
+              <Radar className="h-6 w-6 text-soc-accent animate-pulse" />
+            </div>
+            <h1 className="font-display text-2xl font-bold tracking-wider">EduSOC <span className="text-soc-accent font-light">PRO</span></h1>
+          </div>
+          <h2 className="text-4xl font-bold mb-4 leading-tight">Next-Generation<br/>Campus Security.</h2>
+          <p className="text-slate-400 text-lg max-w-md">Advanced User Entity Behavioral Analytics and Layer 2 Network Defense deployed across your campus in real-time.</p>
+        </div>
+        
+        <div className="relative z-10 flex gap-4">
+          <div className="bg-soc-card/80 p-4 rounded-xl border border-soc-border backdrop-blur">
+            <ShieldCheck className="h-6 w-6 text-soc-green mb-2" />
+            <div className="text-sm font-semibold">Active MITM Blocker</div>
+          </div>
+          <div className="bg-soc-card/80 p-4 rounded-xl border border-soc-border backdrop-blur">
+            <Bot className="h-6 w-6 text-soc-accent mb-2" />
+            <div className="text-sm font-semibold">ML Threat Engine</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Pane - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
+        <div className="w-full max-w-md">
+          <div className="mb-8">
+            <h2 className="text-3xl font-display font-bold mb-2">Welcome back</h2>
+            <p className="text-slate-400">Please sign in to access the command center.</p>
+          </div>
+
+          <div className="flex p-1 bg-soc-surface rounded-lg mb-8 border border-soc-border">
+            <button 
+              type="button"
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${loginMode === 'student' ? 'bg-soc-card text-white shadow' : 'text-slate-400 hover:text-white'}`}
+              onClick={() => { setLoginMode('student'); setShowOtp(false); setError(''); }}
+            >
+              Student Sign-In
+            </button>
+            <button 
+              type="button"
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${loginMode === 'faculty' ? 'bg-soc-card text-white shadow' : 'text-slate-400 hover:text-white'}`}
+              onClick={() => { setLoginMode('faculty'); setShowOtp(false); setError(''); }}
+            >
+              Faculty Sign-In
+            </button>
+          </div>
+
+          {loginMode === 'student' ? (
+            <form onSubmit={handleStudentSubmit} className="space-y-4">
+              {showOtp ? (
+                <div className="animate-in fade-in slide-in-from-bottom-2">
+                  <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">Authentication Code</label>
+                  <input className="soc-input text-center tracking-[0.5em] font-mono text-xl py-3" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" maxLength={6} required />
+                  <p className="text-xs text-soc-accent mt-2 text-center">OTP sent to your registered device via Ntfy.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                  <div>
+                    <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">Email Address</label>
+                    <input className="soc-input bg-soc-bg border-soc-border py-3" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="student@institute.edu" required />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">Password</label>
+                    <input className="soc-input bg-soc-bg border-soc-border py-3" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+                  </div>
+                </div>
+              )}
+              
+              {error && <div className="p-3 bg-soc-red/10 border border-soc-red/30 text-soc-red text-sm rounded-lg flex items-center gap-2 animate-in fade-in"><AlertTriangle className="h-4 w-4"/> {error}</div>}
+              
+              <button type="submit" className="soc-btn soc-btn-primary w-full py-3 justify-center text-sm" disabled={loading}>
+                {loading ? 'Authenticating...' : (showOtp ? 'Verify OTP' : 'Sign In as Student')}
+              </button>
+
+              {!showOtp && (
+                <>
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-soc-border"></div></div>
+                    <div className="relative flex justify-center text-xs"><span className="bg-soc-bg px-2 text-slate-500 uppercase">Or continue with</span></div>
+                  </div>
+                  <div className="flex justify-center">
+                    <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setError('Google Sign-In failed')} useOneTap theme="outline" shape="pill" />
+                  </div>
+                </>
+              )}
+            </form>
+          ) : (
+            <form onSubmit={handleFacultySubmit} className="space-y-4">
+              <div className="p-4 bg-soc-accent/10 border border-soc-accent/20 rounded-lg mb-6 flex items-start gap-3">
+                <ShieldAlert className="h-5 w-5 text-soc-accent shrink-0 mt-0.5" />
+                <p className="text-xs text-soc-accent/90 leading-relaxed">Faculty portal requires secure phone authentication. Standard email login is disabled for administrative accounts to prevent phishing.</p>
+              </div>
+
+              {showOtp ? (
+                <div className="animate-in fade-in slide-in-from-bottom-2">
+                  <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">SMS Verification Code</label>
+                  <input className="soc-input text-center tracking-[0.5em] font-mono text-xl py-3" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" maxLength={6} required />
+                </div>
+              ) : (
+                <div className="animate-in fade-in slide-in-from-bottom-2">
+                  <label className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1 block">Phone Number (with Country Code)</label>
+                  <input className="soc-input bg-soc-bg border-soc-border py-3 font-mono" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 234 567 8900" required />
+                </div>
+              )}
+
+              {error && <div className="p-3 bg-soc-red/10 border border-soc-red/30 text-soc-red text-sm rounded-lg flex items-center gap-2 animate-in fade-in"><AlertTriangle className="h-4 w-4"/> {error}</div>}
+              
+              <button type="submit" className="soc-btn border border-soc-accent text-soc-accent hover:bg-soc-accent/10 w-full py-3 justify-center text-sm" disabled={loading}>
+                {loading ? 'Processing...' : (showOtp ? 'Verify SMS Code' : 'Send SMS Code')}
+              </button>
+            </form>
+          )}
+
+          {/* Quick presentation bypass for the mentor demo */}
+          {!showOtp && (
+            <div className="mt-12 text-center">
+              <p className="text-xs text-slate-500 mb-2">Mentor Demo Shortcuts</p>
+              <div className="flex gap-2 justify-center">
+                <button type="button" onClick={() => { setLoginMode('student'); setEmail('student@institute.edu'); setPassword('admin123'); }} className="text-xs px-2 py-1 bg-soc-surface rounded border border-soc-border text-slate-400 hover:text-white">Auto-fill Student</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}) {
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
