@@ -128,56 +128,32 @@
   ],
   "studentRisks": [
     {
-      "id": "faculty-1",
-      "name": "Sameer Singh (Student)",
-      "department": "Faculty",
-      "riskScore": 8,
-      "bandwidthGB": "1.2",
+      "id": "endpoint-10-91-142-145",
+      "name": "Device (10.91.142.145)",
+      "ip": "10.91.142.145",
+      "mac": "28:cd:c4:46:c1:d1",
+      "department": "Campus Wi-Fi",
+      "riskScore": 0,
+      "bandwidthGB": "0.1",
       "anomalousLogins": 0,
       "trend": "stable",
-      "events": []
-    },
-    {
-      "id": "student-1",
-      "name": "Vishakha Chargotra (Student)",
-      "department": "Computer Science",
-      "riskScore": 37,
-      "bandwidthGB": "4.5",
-      "anomalousLogins": 0,
-      "trend": "up",
       "events": [
-        "Critical: Visited Phishing URL: paypal-secure-login.tk"
+        "Discovered on network scan"
       ]
     },
     {
-      "id": "student-2",
-      "name": "Vikas Harti (Student)",
-      "department": "Library",
-      "riskScore": 5,
-      "bandwidthGB": "0.8",
+      "id": "endpoint-10-91-142-208",
+      "name": "Device (10.91.142.208)",
+      "ip": "10.91.142.208",
+      "mac": "56:fc:88:14:aa:9f",
+      "department": "Campus Wi-Fi",
+      "riskScore": 0,
+      "bandwidthGB": "0.1",
       "anomalousLogins": 0,
       "trend": "stable",
-      "events": []
-    },
-    {
-      "id": "student-3",
-      "name": "Ankush Jamwal (Student)",
-      "department": "Engineering",
-      "riskScore": 18,
-      "bandwidthGB": "2.1",
-      "anomalousLogins": 0,
-      "trend": "stable",
-      "events": []
-    },
-    {
-      "id": "student-4",
-      "name": "Ankush Jamwal (Student)",
-      "department": "Information Technology",
-      "riskScore": 2,
-      "bandwidthGB": "0.3",
-      "anomalousLogins": 0,
-      "trend": "stable",
-      "events": []
+      "events": [
+        "Discovered on network scan"
+      ]
     }
   ]
 }

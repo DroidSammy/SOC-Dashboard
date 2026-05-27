@@ -11,7 +11,7 @@ except ImportError:
     sys.exit(1)
 
 # List of simulated phishing keywords for the demo
-PHISHING_KEYWORDS = ['paypal', 'secure-login', 'verify-account', 'free-crypto', 'update-password', 'bank-alert']
+PHISHING_KEYWORDS = ['paypal', 'secure-login', 'verify-account', 'free-crypto', 'update-password', 'bank-alert', 'hianime', 'torrent', 'movie-free']
 
 def check_domain(domain):
     """Simple rule-based check for phishing indicators in the domain"""

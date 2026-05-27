@@ -140,23 +140,32 @@ app.get('/health', async (_req, res) => {
 
 app.get('/api/labs/status', (req, res) => res.json(labStatus));
 app.get('/api/students/risk', async (req, res) => {
-  const dbStudents = await getStudents();
+  // Only return dynamic risks (real devices discovered on the network)
+  const dbRisks = await getStudentRisks();
+  res.json(dbRisks);
+});
+
+app.post('/api/labs/scan', async (req, res) => {
+  const targetIp = req.body.ip;
+  const devices = await runLocalNetworkSweep(targetIp);
+  
+  // Dynamically add discovered devices to Student Risks
   let dbRisks = await getStudentRisks();
   let changed = false;
   
-  const depts = ['Computer Science', 'Administration', 'Library', 'Engineering'];
-  
-  for (const stu of dbStudents) {
-    if (!dbRisks.find(r => r.id === stu.id)) {
+  for (const dev of devices) {
+    if (!dbRisks.find(r => r.ip === dev.ip)) {
       dbRisks.push({
-        id: stu.id,
-        name: stu.name,
-        department: depts[Math.floor(Math.random() * depts.length)],
-        riskScore: Math.floor(Math.random() * 30),
-        bandwidthGB: (Math.random() * 5).toFixed(1),
+        id: `endpoint-${dev.ip.replace(/\./g, '-')}`,
+        name: `Device (${dev.ip})`,
+        ip: dev.ip,
+        mac: dev.mac || 'Unknown',
+        department: 'Campus Wi-Fi',
+        riskScore: 0,
+        bandwidthGB: '0.1',
         anomalousLogins: 0,
         trend: 'stable',
-        events: []
+        events: ['Discovered on network scan']
       });
       changed = true;
     }
@@ -164,12 +173,6 @@ app.get('/api/students/risk', async (req, res) => {
   
   if (changed) await saveStudentRisks(dbRisks);
   
-  res.json(dbRisks);
-});
-
-app.post('/api/labs/scan', async (req, res) => {
-  const targetIp = req.body.ip;
-  const devices = await runLocalNetworkSweep(targetIp);
   res.json({ status: 'success', devices });
 });
 
@@ -198,32 +201,40 @@ app.post('/api/students/track-dns', async (req, res) => {
   const { ip, domain } = req.body;
   let dbRisks = await getStudentRisks();
   
-  if (dbRisks.length === 0) {
-    return res.status(404).json({ error: 'No students found' });
+  let target = dbRisks.find(r => r.ip === ip);
+  let changed = false;
+  
+  if (!target) {
+    target = {
+      id: `endpoint-${ip.replace(/\./g, '-')}`,
+      name: `Device (${ip})`,
+      ip: ip,
+      department: 'Campus Wi-Fi',
+      riskScore: 0,
+      bandwidthGB: '0.1',
+      anomalousLogins: 0,
+      trend: 'stable',
+      events: []
+    };
+    dbRisks.push(target);
+    changed = true;
   }
-
-  // Map IP to a student consistently based on the last octet of the IP
-  let ipNumber = parseInt((ip || '0').split('.').pop(), 10);
-  if (isNaN(ipNumber)) ipNumber = Math.floor(Math.random() * dbRisks.length);
   
-  const studentIndex = ipNumber % dbRisks.length;
-  const targetStudent = dbRisks[studentIndex];
+  target.riskScore = Math.min(100, target.riskScore + 25);
+  target.trend = 'up';
   
-  targetStudent.riskScore = Math.min(100, targetStudent.riskScore + 25);
-  targetStudent.trend = 'up';
-  
-  const newEvent = `Critical: Visited Phishing URL: ${domain}`;
-  if (targetStudent.events[0] !== newEvent) {
-    targetStudent.events.unshift(newEvent);
+  const newEvent = `Critical: Visited Malicious URL: ${domain}`;
+  if (target.events[0] !== newEvent) {
+    target.events.unshift(newEvent);
+    changed = true;
   }
   
-  // Keep event list manageable
-  targetStudent.events = targetStudent.events.slice(0, 5);
+  target.events = target.events.slice(0, 5);
   
-  await saveStudentRisks(dbRisks);
-  await logActivity(`DNS Alert: ${targetStudent.name} requested malicious domain ${domain}`, 'high');
+  if (changed) await saveStudentRisks(dbRisks);
+  await logActivity(`DNS Alert: ${target.name} requested malicious domain ${domain}`, 'high');
   
-  res.json({ success: true, mappedTo: targetStudent.name });
+  res.json({ success: true, mappedTo: target.name });
 });
 
 const otps = {}; // Store temporary OTPs

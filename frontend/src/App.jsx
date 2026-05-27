@@ -1630,16 +1630,35 @@ function LabMonitor({ createTicket, pushLog }) {
     }
   };
 
-  const quarantineDevice = (dev) => {
-    if (quarantineState[dev.id]) return;
+  const quarantineDevice = async (dev) => {
     setQuarantineState(prev => ({ ...prev, [dev.id]: 'Pushing ACL Rule...' }));
-    pushLog(`Initiating switch-level quarantine for MAC ${dev.mac}`, 'high');
-    
-    setTimeout(() => {
-      setQuarantineState(prev => ({ ...prev, [dev.id]: 'MAC Quarantined' }));
-      pushLog(`Successfully quarantined ${dev.mac} on local subnet.`, 'medium');
-      createTicket({ type: 'Unauthorized Device Quarantined', severity: 'high', source: dev.mac });
-    }, 2000);
+    pushLog(`Initiating ARP Spoofing to block ${dev.ip}...`, 'high');
+    try {
+      await api.blockNetworkIP(dev.ip, true);
+      setQuarantineState(prev => ({ ...prev, [dev.id]: 'Quarantined' }));
+      pushLog(`Successfully blocked internet for ${dev.ip} (${dev.mac}).`, 'medium');
+      createTicket({ type: 'Unauthorized Device Quarantined', severity: 'high', source: dev.ip });
+    } catch (e) {
+      setQuarantineState(prev => ({ ...prev, [dev.id]: 'Failed' }));
+      pushLog(`Failed to block ${dev.ip}: ${e.message}`, 'high');
+    }
+  };
+
+  const unquarantineDevice = async (dev) => {
+    setQuarantineState(prev => ({ ...prev, [dev.id]: 'Removing Rule...' }));
+    pushLog(`Restoring access for ${dev.ip}...`, 'low');
+    try {
+      await api.blockNetworkIP(dev.ip, false);
+      setQuarantineState(prev => {
+        const next = { ...prev };
+        delete next[dev.id];
+        return next;
+      });
+      pushLog(`Restored internet access for ${dev.ip} (${dev.mac}).`, 'low');
+    } catch (e) {
+      setQuarantineState(prev => ({ ...prev, [dev.id]: 'Quarantined' }));
+      pushLog(`Failed to restore ${dev.ip}: ${e.message}`, 'high');
+    }
   };
 
   return (
@@ -1703,23 +1722,32 @@ function LabMonitor({ createTicket, pushLog }) {
                       <td className="p-4"><span className="px-2 py-1 bg-soc-blue/10 text-soc-blue rounded text-[10px]">{dev.os}</span></td>
                       <td className="p-4"><span className={classNames("px-2 py-1 rounded text-[10px]", dev.ports.includes('None') ? 'bg-slate-800 text-slate-400' : 'bg-soc-orange/10 text-soc-orange')}>{dev.ports}</span></td>
                       <td className="p-4">
-                        <span className={classNames("flex items-center gap-1", quarantineState[dev.id] === 'MAC Quarantined' ? 'text-soc-red' : 'text-soc-green')}>
-                          <CheckCircle2 className="h-3 w-3" /> {quarantineState[dev.id] === 'MAC Quarantined' ? 'Offline' : 'Online'}
+                        <span className={classNames("flex items-center gap-1", quarantineState[dev.id] === 'Quarantined' ? 'text-soc-red' : 'text-soc-green')}>
+                          <CheckCircle2 className="h-3 w-3" /> {quarantineState[dev.id] === 'Quarantined' ? 'Offline' : 'Online'}
                         </span>
                       </td>
                       <td className="p-4">
-                        <button 
-                          onClick={() => quarantineDevice(dev)}
-                          disabled={!!quarantineState[dev.id]}
-                          className={classNames(
-                            "soc-btn text-xs py-1 px-2 transition-all",
-                            quarantineState[dev.id] === 'MAC Quarantined' ? 'bg-soc-red/20 text-soc-red border-soc-red/30' :
-                            quarantineState[dev.id] ? 'bg-soc-orange/20 text-soc-orange border-soc-orange/30 animate-pulse' :
-                            'soc-btn-ghost text-soc-red border-soc-red/30 hover:bg-soc-red/10'
-                          )}
-                        >
-                          {quarantineState[dev.id] || 'Quarantine MAC'}
-                        </button>
+                        {quarantineState[dev.id] === 'Quarantined' ? (
+                          <button 
+                            onClick={() => unquarantineDevice(dev)}
+                            className="soc-btn text-xs py-1 px-2 transition-all bg-soc-green/20 text-soc-green border-soc-green/30 hover:bg-soc-green/30"
+                          >
+                            Unblock Access
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => quarantineDevice(dev)}
+                            disabled={!!quarantineState[dev.id]}
+                            className={classNames(
+                              "soc-btn text-xs py-1 px-2 transition-all",
+                              quarantineState[dev.id] === 'Quarantined' ? 'bg-soc-red/20 text-soc-red border-soc-red/30' :
+                              quarantineState[dev.id] ? 'bg-soc-orange/20 text-soc-orange border-soc-orange/30 animate-pulse' :
+                              'soc-btn-ghost text-soc-red border-soc-red/30 hover:bg-soc-red/10'
+                            )}
+                          >
+                            {quarantineState[dev.id] || 'Quarantine MAC'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

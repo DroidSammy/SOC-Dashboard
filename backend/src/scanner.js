@@ -19,7 +19,9 @@ export async function runLocalNetworkSweep(targetIp) {
         continue;
       }
       if (parsing && line.includes('=')) continue; // skip borders
+      if (parsing && line.includes('-')) continue; // skip separators
       if (parsing && line.includes('Total')) break;
+      if (parsing && line.includes('No devices')) continue; // skip 'No devices found' message
       if (parsing && line.trim()) {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 2) {
@@ -32,19 +34,10 @@ export async function runLocalNetworkSweep(targetIp) {
       }
     }
     
-    if (devices.length > 0) return devices;
-    
-    // Fallback if scapy didn't find anything (no admin rights)
-    return [
-      { ip: '10.0.0.12', mac: '00-B0-D0-63-C2-26', type: 'dynamic (No Admin)' },
-      { ip: '10.0.0.14', mac: 'b2-e6-c5-f1-60-0d', type: 'dynamic (No Admin)' },
-    ];
+    return devices;
   } catch (error) {
     console.error('Network sweep failed:', error.message);
-    return [
-      { ip: '10.0.0.12', mac: '00-B0-D0-63-C2-26', type: 'dynamic (Error)' },
-      { ip: '10.0.0.14', mac: 'b2-e6-c5-f1-60-0d', type: 'dynamic (Error)' },
-    ];
+    return [];
   }
 }
 
