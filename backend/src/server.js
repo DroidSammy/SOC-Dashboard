@@ -18,7 +18,7 @@ import {
   getAbuseIpThreats,
   searchNvd,
   explainEmailWithChatGPT,
-  askCyberAdvisorWithChatGPT,
+  askCyberAdvisorWithGemini,
 } from './externalApis.js';
 import {
   analyzeEmail,
@@ -525,7 +525,7 @@ app.post('/api/gmail/scan', async (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   const question = String(req.body.question || '');
-  const answer = await askCyberAdvisorWithChatGPT(question);
+  const answer = await askCyberAdvisorWithGemini(question);
   await logActivity(`Student requested AI Cyber advice`, 'low');
   res.json({ answer });
 });

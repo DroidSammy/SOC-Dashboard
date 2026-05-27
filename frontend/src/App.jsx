@@ -407,9 +407,22 @@ function App() {
   const [threatIndex, setThreatIndex] = useState(0);
 
   const [students, setStudents] = useState([]);
+  const [labDevices, setLabDevices] = useState([]);
+  const [labTargetIp, setLabTargetIp] = useState('');
+  const [labQuarantine, setLabQuarantine] = useState({});
+  const [labScanning, setLabScanning] = useState(false);
 
   useEffect(() => {
     if (!user) return;
+    
+    const fetchStudents = () => {
+      api.studentRisks().then((data) => {
+        if (Array.isArray(data)) setStudents(data);
+      }).catch(() => {});
+    };
+    fetchStudents();
+    const studentTimer = setInterval(fetchStudents, 3000);
+
     api.health()
       .then((data) => {
         setService({ status: 'online', models: data.ml?.models || {}, ml: data.ml });
@@ -425,12 +438,8 @@ function App() {
         if (Array.isArray(items) && items.length) setTickets(items);
       })
       .catch(() => {});
-
-    api.studentRisks()
-      .then((data) => {
-        if (Array.isArray(data)) setStudents(data);
-      })
-      .catch(() => {});
+      
+    return () => clearInterval(studentTimer);
   }, [user]);
 
   useEffect(() => {
@@ -495,7 +504,7 @@ function App() {
           </div>
 
           <nav className="space-y-2">
-            {navItems.filter(([id]) => ['faculty', 'analyst'].includes(user.role) || ['overview', 'email', 'tickets', 'url', 'password'].includes(id)).map(([id, label, Icon]) => (
+            {navItems.filter(([id]) => ['faculty', 'analyst'].includes(user.role) || ['overview', 'email', 'tickets', 'url', 'password', 'chatbot', 'training'].includes(id)).map(([id, label, Icon]) => (
               <button
                 key={id}
                 type="button"
@@ -547,7 +556,7 @@ function App() {
               </p>
             </div>
             <div className="flex rounded-lg border border-soc-border bg-soc-surface p-1 lg:hidden">
-              {navItems.filter(([id]) => user.role === 'faculty' || ['overview', 'email', 'tickets', 'url'].includes(id)).slice(0, 5).map(([id, label, Icon]) => (
+              {navItems.filter(([id]) => user.role === 'faculty' || ['overview', 'email', 'tickets', 'url', 'chatbot', 'training'].includes(id)).slice(0, 5).map(([id, label, Icon]) => (
                 <button
                   key={id}
                   type="button"
@@ -565,8 +574,8 @@ function App() {
           </header>
 
           {active === 'overview' && <Overview stats={stats} tickets={tickets} threatIndex={threatIndex} students={students} />}
-          {active === 'lab' && <LabMonitor createTicket={createTicket} pushLog={pushLog} />}
-          {active === 'risk' && <StudentRisk createTicket={createTicket} pushLog={pushLog} />}
+          {active === 'lab' && <LabMonitor createTicket={createTicket} pushLog={pushLog} liveDevices={labDevices} setLiveDevices={setLabDevices} targetIp={labTargetIp} setTargetIp={setLabTargetIp} quarantineState={labQuarantine} setQuarantineState={setLabQuarantine} scanning={labScanning} setScanning={setLabScanning} />}
+          {active === 'risk' && <StudentRisk createTicket={createTicket} pushLog={pushLog} students={students} setStudents={setStudents} />}
           {active === 'url' && <UrlScanner createTicket={createTicket} pushLog={pushLog} />}
           {active === 'email' && <EmailScanner createTicket={createTicket} pushLog={pushLog} />}
           {active === 'password' && <PasswordAnalyzer pushLog={pushLog} />}
@@ -1595,11 +1604,7 @@ function chartOptions() {
   };
 }
 
-function LabMonitor({ createTicket, pushLog }) {
-  const [liveDevices, setLiveDevices] = useState([]);
-  const [scanning, setScanning] = useState(false);
-  const [targetIp, setTargetIp] = useState('');
-  const [quarantineState, setQuarantineState] = useState({});
+function LabMonitor({ createTicket, pushLog, liveDevices, setLiveDevices, targetIp, setTargetIp, quarantineState, setQuarantineState, scanning, setScanning }) {
 
   const runScan = async () => {
     if (scanning) return;
@@ -1761,16 +1766,11 @@ function LabMonitor({ createTicket, pushLog }) {
   );
 }
 
-function StudentRisk({ createTicket, pushLog }) {
-  const [students, setStudents] = useState([]);
+function StudentRisk({ createTicket, pushLog, students, setStudents }) {
   const [scanning, setScanning] = useState(false);
   const [liveLogs, setLiveLogs] = useState([]);
   const [breachChecks, setBreachChecks] = useState({});
   const [isolationState, setIsolationState] = useState({});
-
-  useEffect(() => {
-    api.studentRisks().then(setStudents).catch(() => {});
-  }, []);
 
   const isolateStudent = (student) => {
     if (isolationState[student.id]) return;

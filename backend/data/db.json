@@ -133,11 +133,12 @@
       "ip": "10.91.142.145",
       "mac": "28:cd:c4:46:c1:d1",
       "department": "Campus Wi-Fi",
-      "riskScore": 0,
+      "riskScore": 25,
       "bandwidthGB": "0.1",
       "anomalousLogins": 0,
-      "trend": "stable",
+      "trend": "up",
       "events": [
+        "Critical: Visited Malicious URL: hianime.ms",
         "Discovered on network scan"
       ]
     },
@@ -147,11 +148,12 @@
       "ip": "10.91.142.208",
       "mac": "56:fc:88:14:aa:9f",
       "department": "Campus Wi-Fi",
-      "riskScore": 0,
+      "riskScore": 25,
       "bandwidthGB": "0.1",
       "anomalousLogins": 0,
-      "trend": "stable",
+      "trend": "up",
       "events": [
+        "Critical: Visited Malicious URL: hianime.ms",
         "Discovered on network scan"
       ]
     }

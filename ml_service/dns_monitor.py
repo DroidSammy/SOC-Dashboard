@@ -5,7 +5,7 @@ import time
 import requests
 
 try:
-    from scapy.all import sniff, IP, UDP, DNS, DNSQR
+    from scapy.all import sniff, IP, IPv6, UDP, DNS, DNSQR
 except ImportError:
     print("Error: scapy is not installed. Run: pip install scapy")
     sys.exit(1)
@@ -40,8 +40,16 @@ def report_to_backend(ip, domain):
 def dns_callback(packet):
     """Callback function for each intercepted packet."""
     if packet.haslayer(DNSQR):
-        query = packet[DNSQR].qname.decode('utf-8').strip('.')
-        src_ip = packet[IP].src
+        try:
+            query = packet[DNSQR].qname.decode('utf-8').strip('.')
+        except Exception:
+            return
+            
+        src_ip = "Unknown IP"
+        if packet.haslayer(IP):
+            src_ip = packet[IP].src
+        elif packet.haslayer(IPv6):
+            src_ip = packet[IPv6].src
         
         # We only care about devices on the local network requesting external domains
         # Wait, for a simple demo we'll just log and check all

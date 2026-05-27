@@ -205,26 +205,41 @@ function explainEmailFallback(emailText, verdict) {
   return "This email appears to be legitimate. It lacks common phishing indicators such as suspicious links, malicious attachments, or high-pressure language.";
 }
 
-export async function askCyberAdvisorWithChatGPT(question) {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key || key.includes("sk-fake")) {
+export async function askCyberAdvisorWithGemini(question) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key.includes("your_api_key") || key.trim() === '') {
     return getChatbotFallback(question);
   }
 
   try {
-    const openai = new OpenAI({ apiKey: key });
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: 'You are a helpful, professional cybersecurity advisor for students. Keep your answers concise, practical, and easy to understand.' },
-        { role: 'user', content: question }
-      ],
-      temperature: 0.7,
-      max_tokens: 300,
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: "You are a helpful, professional cybersecurity advisor for students. Keep your answers concise, practical, and easy to understand." }]
+        },
+        contents: [
+          { parts: [{ text: question }] }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 300,
+        }
+      })
     });
-    return response.choices[0]?.message?.content?.trim() || "I'm sorry, I couldn't generate a response.";
+
+    if (!response.ok) {
+      console.error("Gemini API Error:", await response.text());
+      return getChatbotFallback(question);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "I'm sorry, I couldn't generate a response.";
   } catch (error) {
-    console.error("OpenAI API Error:", error.message);
+    console.error("Gemini Request Error:", error.message);
     return getChatbotFallback(question);
   }
 }
