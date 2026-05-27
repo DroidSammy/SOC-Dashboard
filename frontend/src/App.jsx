@@ -145,35 +145,37 @@ function LoginScreen({ onLogin }) {
   const [showOtp, setShowOtp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState(null);
-
-  const setupRecaptcha = () => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-      });
-    }
-  };
 
   const handleFacultySubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      if (showOtp && confirmationResult) {
-        const result = await confirmationResult.confirm(otp);
-        onLogin({ id: result.user.uid, name: 'Faculty Member', email: result.user.phoneNumber, role: 'faculty' });
+      if (showOtp) {
+        if (otp === window.generatedOtp) {
+          onLogin({ id: 'faculty-admin', name: 'Faculty Member', email: phone, role: 'faculty' });
+        } else {
+          setError('Invalid Security Code.');
+        }
       } else {
-        setupRecaptcha();
-        const appVerifier = window.recaptchaVerifier;
-        const result = await signInWithPhoneNumber(auth, phone, appVerifier);
-        setConfirmationResult(result);
+        // Generate a 6-digit random OTP
+        const generated = Math.floor(100000 + Math.random() * 900000).toString();
+        window.generatedOtp = generated;
+        
+        // Send a Push Notification to the user's phone via Ntfy
+        await fetch('https://ntfy.sh/soc_dashboard_admin_otp', {
+          method: 'POST',
+          headers: {
+            'Title': 'SOC Dashboard Login',
+            'Tags': 'shield,warning'
+          },
+          body: `Your Admin Verification Code is: ${generated}`
+        });
+        
         setShowOtp(true);
       }
     } catch (err) {
-      setError(err.message || 'Phone authentication failed.');
-      if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
-      window.recaptchaVerifier = null;
+      setError('Push notification delivery failed.');
     } finally {
       setLoading(false);
     }
@@ -217,7 +219,6 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div className="flex h-full w-full bg-soc-bg text-slate-100 overflow-hidden">
-      <div id="recaptcha-container"></div>
       
       {/* Left Pane - Premium Branding */}
       <div className="hidden lg:flex w-1/2 bg-[#08111f] flex-col justify-between p-12 border-r border-soc-border/50 relative overflow-hidden">

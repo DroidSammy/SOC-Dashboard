@@ -6,12 +6,12 @@ import { getAuth } from 'firebase/auth';
 // 2. Create a project
 // 3. Add a Web App and copy the config below
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBvivQWARTxAh-Oip8rn6iiTBGXY6EOJG8",
+  authDomain: "soc-dashboard-337ea.firebaseapp.com",
+  projectId: "soc-dashboard-337ea",
+  storageBucket: "soc-dashboard-337ea.firebasestorage.app",
+  messagingSenderId: "1095164562575",
+  appId: "1:1095164562575:web:ee47ad34b92a8a81e0f4fa"
 };
 
 // Initialize Firebase
