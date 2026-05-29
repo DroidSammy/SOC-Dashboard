@@ -5,7 +5,7 @@ const execAsync = promisify(exec);
 
 export async function runLocalNetworkSweep(targetIp) {
   try {
-    const target = targetIp || '192.168.1.1/24';
+    const target = targetIp || 'auto';
     const { stdout } = await execAsync(`python ../ml_service/real_wifi_scanner.py -t ${target}`);
     
     // Parse the output from real_wifi_scanner.py

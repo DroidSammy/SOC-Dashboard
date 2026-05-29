@@ -1674,7 +1674,7 @@ function LabMonitor({ createTicket, pushLog, liveDevices, setLiveDevices, target
         <div className="flex gap-2 items-center">
           <input 
             type="text" 
-            placeholder="Target IP (e.g. 192.168.1.5)"
+            placeholder="Target IP (e.g. 192.168.1.0/24 or leave empty for auto)"
             value={targetIp}
             onChange={(e) => setTargetIp(e.target.value)}
             className="soc-input w-48 text-sm"
