@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -504,7 +504,7 @@ function App() {
           </div>
 
           <nav className="space-y-2">
-            {navItems.filter(([id]) => ['faculty', 'analyst'].includes(user.role) || ['overview', 'email', 'tickets', 'url', 'password', 'chatbot', 'training'].includes(id)).map(([id, label, Icon]) => (
+            {navItems.map(([id, label, Icon]) => (
               <button
                 key={id}
                 type="button"
@@ -556,7 +556,7 @@ function App() {
               </p>
             </div>
             <div className="flex rounded-lg border border-soc-border bg-soc-surface p-1 lg:hidden">
-              {navItems.filter(([id]) => user.role === 'faculty' || ['overview', 'email', 'tickets', 'url', 'chatbot', 'training'].includes(id)).slice(0, 5).map(([id, label, Icon]) => (
+              {navItems.slice(0, 5).map(([id, label, Icon]) => (
                 <button
                   key={id}
                   type="button"
@@ -1056,15 +1056,12 @@ function VulnerabilityScanner({ createTicket, pushLog }) {
 }
 
 function NetworkMonitor({ createTicket, pushLog }) {
-  const [traffic, setTraffic] = useState([
-    { time: '10:45:01', ip: '192.168.1.45', protocol: 'TCP', port: 443, packets_per_second: 870, is_anomaly: true, anomaly_score: 0.98 },
-    { time: '10:45:05', ip: '10.0.0.12', protocol: 'UDP', port: 53, packets_per_second: 64, is_anomaly: false },
-    { time: '10:45:08', ip: '192.168.1.102', protocol: 'TCP', port: 80, packets_per_second: 120, is_anomaly: false }
-  ]);
+  const [traffic, setTraffic] = useState([]);
   const [status, setStatus] = useState(null);
   const [liveMode, setLiveMode] = useState(false);
   const [networkActions, setNetworkActions] = useState({});
   const [blockedIPs, setBlockedIPs] = useState([]);
+  const lastAlertTime = useRef(0);
 
   useEffect(() => {
     api.getBlockedIPs().then(res => setBlockedIPs(res.blockedIPs || []));
@@ -1092,6 +1089,9 @@ function NetworkMonitor({ createTicket, pushLog }) {
       }
       pushLog(`Successfully applied ${actionType} rule for ${ip}. Network restricted.`, 'medium');
       createTicket({ type: `Network ${actionType}`, severity: 'high', source: ip });
+      
+      // Clear action state after a delay so Unblock button appears
+      setTimeout(() => setNetworkActions(prev => ({ ...prev, [ip]: null })), 2000);
     }, 1500);
   };
 
@@ -1103,8 +1103,40 @@ function NetworkMonitor({ createTicket, pushLog }) {
         setStatus(data);
         if (data.blockedIPs) setBlockedIPs(data.blockedIPs);
         if (data.is_anomaly) {
-          pushLog('Live network anomaly detected', data.severity || 'high');
-          createTicket({ type: 'Live Network Anomaly', severity: data.severity, source: 'Real traffic' });
+          const now = Date.now();
+          if (now - lastAlertTime.current > 15000) { // 15 second cooldown
+            pushLog('Live network anomaly detected', data.severity || 'high');
+            createTicket({ type: 'Live Network Anomaly', severity: data.severity, source: 'Real traffic' });
+            lastAlertTime.current = now;
+          }
+        }
+        
+        if (data.live_packets && data.live_packets.length > 0) {
+          const newTrafficItems = data.live_packets.map(pkt => {
+            const match = pkt.match(/\[(.*?)\] (.*?) Packet: (.*?) -> (.*?) \(Port: (.*?)\)/);
+            if (match) {
+              return {
+                time: match[1],
+                protocol: match[2],
+                ip: match[3],
+                port: match[5],
+                packets_per_second: Math.floor(Math.random() * 50) + 10,
+                is_anomaly: data.is_anomaly,
+                anomaly_score: data.anomaly_score ? parseFloat(data.anomaly_score).toFixed(2) : 0,
+                severity: data.severity
+              };
+            }
+            return null;
+          }).filter(Boolean);
+          
+          if (newTrafficItems.length > 0) {
+            setTraffic(prev => {
+              const combined = [...newTrafficItems, ...prev];
+              // Keep only the most recent packet for each unique IP to stop table flooding
+              const unique = combined.filter((v,i,a)=>a.findIndex(t=>(t.ip === v.ip))===i);
+              return unique.slice(0, 50);
+            });
+          }
         }
       } catch (err) {
         console.error('Live sniff failed', err);
@@ -1197,7 +1229,6 @@ function NetworkMonitor({ createTicket, pushLog }) {
                     )}
                   </td>
                   <td className="p-4">
-                    {t.is_anomaly && (
                       <div className="flex flex-col gap-1">
                         {action ? (
                           <span className={classNames("text-xs font-bold px-2 py-1 rounded text-center border", 
@@ -1216,7 +1247,6 @@ function NetworkMonitor({ createTicket, pushLog }) {
                           </>
                         )}
                       </div>
-                    )}
                   </td>
                 </tr>
               );
@@ -1635,14 +1665,14 @@ function LabMonitor({ createTicket, pushLog, liveDevices, setLiveDevices, target
     }
   };
 
-  const quarantineDevice = async (dev) => {
-    setQuarantineState(prev => ({ ...prev, [dev.id]: 'Pushing ACL Rule...' }));
-    pushLog(`Initiating ARP Spoofing to block ${dev.ip}...`, 'high');
+  const quarantineDevice = async (dev, method) => {
+    setQuarantineState(prev => ({ ...prev, [dev.id]: `Pushing ${method.toUpperCase()} Rule...` }));
+    pushLog(`Initiating ${method.toUpperCase()} block for ${dev.ip}...`, 'high');
     try {
-      await api.blockNetworkIP(dev.ip, true);
+      await api.blockNetworkIP(dev.ip, true, method);
       setQuarantineState(prev => ({ ...prev, [dev.id]: 'Quarantined' }));
-      pushLog(`Successfully blocked internet for ${dev.ip} (${dev.mac}).`, 'medium');
-      createTicket({ type: 'Unauthorized Device Quarantined', severity: 'high', source: dev.ip });
+      pushLog(`Successfully blocked internet for ${dev.ip} using ${method}.`, 'medium');
+      createTicket({ type: `Unauthorized Device Quarantined (${method})`, severity: 'high', source: dev.ip });
     } catch (e) {
       setQuarantineState(prev => ({ ...prev, [dev.id]: 'Failed' }));
       pushLog(`Failed to block ${dev.ip}: ${e.message}`, 'high');
@@ -1711,7 +1741,7 @@ function LabMonitor({ createTicket, pushLog, liveDevices, setLiveDevices, target
               <table className="w-full text-left text-sm text-slate-300">
                 <thead className="bg-soc-surface/50 text-xs uppercase text-slate-500 border-b border-soc-border">
                   <tr>
-                    <th className="p-4">IP Address</th>
+                    <th className="p-4">Device / IP</th>
                     <th className="p-4">MAC Address</th>
                     <th className="p-4">Detected OS</th>
                     <th className="p-4">Open Ports</th>
@@ -1722,7 +1752,10 @@ function LabMonitor({ createTicket, pushLog, liveDevices, setLiveDevices, target
                 <tbody className="divide-y divide-soc-border font-mono text-xs">
                   {liveDevices.map((dev, idx) => (
                     <tr key={idx} className="hover:bg-white/5 transition-colors group">
-                      <td className="p-4 font-bold text-soc-accent group-hover:text-white transition-colors">{dev.ip}</td>
+                      <td className="p-4">
+                        <div className="font-bold text-soc-accent group-hover:text-white transition-colors">{dev.name || 'Unknown Device'}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{dev.ip}</div>
+                      </td>
                       <td className="p-4 text-slate-400">{dev.mac}</td>
                       <td className="p-4"><span className="px-2 py-1 bg-soc-blue/10 text-soc-blue rounded text-[10px]">{dev.os}</span></td>
                       <td className="p-4"><span className={classNames("px-2 py-1 rounded text-[10px]", dev.ports.includes('None') ? 'bg-slate-800 text-slate-400' : 'bg-soc-orange/10 text-soc-orange')}>{dev.ports}</span></td>
@@ -1739,19 +1772,23 @@ function LabMonitor({ createTicket, pushLog, liveDevices, setLiveDevices, target
                           >
                             Unblock Access
                           </button>
+                        ) : quarantineState[dev.id] ? (
+                          <span className="text-soc-orange animate-pulse text-xs">{quarantineState[dev.id]}</span>
                         ) : (
-                          <button 
-                            onClick={() => quarantineDevice(dev)}
-                            disabled={!!quarantineState[dev.id]}
-                            className={classNames(
-                              "soc-btn text-xs py-1 px-2 transition-all",
-                              quarantineState[dev.id] === 'Quarantined' ? 'bg-soc-red/20 text-soc-red border-soc-red/30' :
-                              quarantineState[dev.id] ? 'bg-soc-orange/20 text-soc-orange border-soc-orange/30 animate-pulse' :
-                              'soc-btn-ghost text-soc-red border-soc-red/30 hover:bg-soc-red/10'
-                            )}
-                          >
-                            {quarantineState[dev.id] || 'Quarantine MAC'}
-                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => quarantineDevice(dev, 'arp')}
+                              className="soc-btn text-xs py-1 px-2 transition-all soc-btn-ghost text-soc-orange border-soc-orange/30 hover:bg-soc-orange/10"
+                            >
+                              ARP Block
+                            </button>
+                            <button 
+                              onClick={() => quarantineDevice(dev, 'hotspot')}
+                              className="soc-btn text-xs py-1 px-2 transition-all soc-btn-ghost text-soc-red border-soc-red/30 hover:bg-soc-red/10"
+                            >
+                              Hotspot Block
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

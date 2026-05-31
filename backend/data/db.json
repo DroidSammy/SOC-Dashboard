@@ -156,6 +156,49 @@
         "Critical: Visited Malicious URL: hianime.ms",
         "Discovered on network scan"
       ]
+    },
+    {
+      "id": "endpoint-10-93-27-110",
+      "name": "Device (10.93.27.110)",
+      "ip": "10.93.27.110",
+      "mac": "ca:45:67:d6:c6:2c",
+      "department": "Campus Wi-Fi",
+      "riskScore": 0,
+      "bandwidthGB": "0.1",
+      "anomalousLogins": 0,
+      "trend": "stable",
+      "events": [
+        "Discovered on network scan"
+      ]
+    },
+    {
+      "id": "endpoint-10-93-27-145",
+      "name": "Device (10.93.27.145)",
+      "ip": "10.93.27.145",
+      "mac": "28:cd:c4:46:c1:d1",
+      "department": "Campus Wi-Fi",
+      "riskScore": 35,
+      "bandwidthGB": "0.8",
+      "anomalousLogins": 1,
+      "trend": "up",
+      "events": [
+        "Live Alert: Attempted SQL Injection on Library Portal",
+        "Discovered on network scan"
+      ]
+    },
+    {
+      "id": "endpoint-10-93-27-87",
+      "name": "Device (10.93.27.87)",
+      "ip": "10.93.27.87",
+      "mac": "50:5a:65:fe:a9:a1",
+      "department": "Campus Wi-Fi",
+      "riskScore": 0,
+      "bandwidthGB": "0.1",
+      "anomalousLogins": 0,
+      "trend": "stable",
+      "events": [
+        "Discovered on network scan"
+      ]
     }
   ]
 }

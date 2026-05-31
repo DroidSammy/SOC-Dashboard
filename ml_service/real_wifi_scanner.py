@@ -50,17 +50,24 @@ def scan_wifi(target_ip):
         for sent, received in result:
             clients.append({'ip': received.psrc, 'mac': received.hwsrc})
 
-        print("\n" + "="*40)
+        print("\n" + "="*60)
         print("Discovered Live Network Endpoints:")
-        print("="*40)
-        print("IP Address\t\tMAC Address")
-        print("-" * 40)
+        print("="*60)
+        print("IP Address\t\tMAC Address\t\tHostname")
+        print("-" * 60)
         
         if not clients:
             print("No devices found. Ensure you are running as Administrator.")
             
         for client in clients:
-            print(f"{client['ip']}\t\t{client['mac']}")
+            try:
+                socket.setdefaulttimeout(0.5) # Fast timeout for DNS resolution
+                hostname = socket.gethostbyaddr(client['ip'])[0]
+            except Exception:
+                hostname = "Unknown Device"
+            finally:
+                socket.setdefaulttimeout(None) # Reset to default
+            print(f"{client['ip']}\t\t{client['mac']}\t{hostname}")
             
         print("="*40)
         print(f"Total devices found: {len(clients)}")

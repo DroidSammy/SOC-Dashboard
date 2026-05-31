@@ -185,10 +185,18 @@ app.post('/api/students/scan', async (req, res) => {
   const studentIndex = Math.floor(Math.random() * dbRisks.length);
   const targetStudent = dbRisks[studentIndex];
   
-  targetStudent.riskScore = Math.min(100, targetStudent.riskScore + 35);
-  targetStudent.anomalousLogins += 1;
-  targetStudent.bandwidthGB = (parseFloat(targetStudent.bandwidthGB) + (Math.random() * 2)).toFixed(1);
+  if (!targetStudent) {
+    return res.json(dbRisks);
+  }
+  
+  targetStudent.riskScore = Math.min(100, (targetStudent.riskScore || 0) + 35);
+  targetStudent.anomalousLogins = (targetStudent.anomalousLogins || 0) + 1;
+  targetStudent.bandwidthGB = (parseFloat(targetStudent.bandwidthGB || '0.0') + (Math.random() * 2)).toFixed(1);
   targetStudent.trend = 'up';
+  
+  if (!Array.isArray(targetStudent.events)) {
+    targetStudent.events = [];
+  }
   targetStudent.events.unshift('Live Alert: Attempted SQL Injection on Library Portal');
   
   await saveStudentRisks(dbRisks);
@@ -533,34 +541,46 @@ app.post('/api/chat', async (req, res) => {
 const blockerProcesses = {};
 
 app.post('/api/network/block', async (req, res) => {
-  const { ip, block } = req.body;
+  const { ip, block, method = 'hotspot' } = req.body;
   const blockedIPs = await toggleBlockIP(ip, block);
 
+  const hotspotScript = new URL('../../ml_service/hotspot_blocker.py', import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, '$1');
+  const arpScript = new URL('../../ml_service/real_blocker.py', import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, '$1');
+
   if (block) {
-    if (!blockerProcesses[ip]) {
+    if (method === 'hotspot') {
+      console.log(`Spawning hotspot firewall block for ${ip}`);
+      const blocker = spawn('python', [hotspotScript, 'block', ip]);
+      blocker.stdout.on('data', (data) => console.log(`[HotspotBlocker ${ip}]: ${data}`));
+      blocker.stderr.on('data', (data) => console.error(`[HotspotBlocker ERR ${ip}]: ${data}`));
+      blockerProcesses[ip] = { type: 'hotspot' };
+    } else if (method === 'arp') {
       const ipParts = ip.split('.');
       if (ipParts.length === 4) {
-        // Assume gateway is .1
-        const gateway = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.1`;
-        console.log(`Spawning real blocker for ${ip} via gateway ${gateway}`);
-        
-        // Resolve absolute path to ml_service/real_blocker.py
-        const blockerScript = new URL('../../ml_service/real_blocker.py', import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, '$1');
-        
-        const blocker = spawn('python', [blockerScript, ip, gateway]);
-        
-        blocker.stdout.on('data', (data) => console.log(`[Blocker ${ip}]: ${data}`));
-        blocker.stderr.on('data', (data) => console.error(`[Blocker ERR ${ip}]: ${data}`));
-        
-        blockerProcesses[ip] = blocker;
+        const gateway = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.1`; // Assume gateway is .1
+        console.log(`Spawning ARP spoofer for ${ip} via gateway ${gateway}`);
+        const blocker = spawn('python', [arpScript, ip, gateway]);
+        blocker.stdout.on('data', (data) => console.log(`[ARPBlocker ${ip}]: ${data}`));
+        blocker.stderr.on('data', (data) => console.error(`[ARPBlocker ERR ${ip}]: ${data}`));
+        blockerProcesses[ip] = { type: 'arp', process: blocker };
       }
     }
   } else {
-    if (blockerProcesses[ip]) {
-      console.log(`Stopping real blocker for ${ip}`);
-      blockerProcesses[ip].kill('SIGINT');
-      delete blockerProcesses[ip];
+    const processInfo = blockerProcesses[ip] || { type: method };
+    
+    if (processInfo.type === 'hotspot' || method === 'hotspot') {
+      console.log(`Removing hotspot firewall block for ${ip}`);
+      const unblocker = spawn('python', [hotspotScript, 'unblock', ip]);
+      unblocker.stdout.on('data', (data) => console.log(`[HotspotUnblocker ${ip}]: ${data}`));
+      unblocker.stderr.on('data', (data) => console.error(`[HotspotUnblocker ERR ${ip}]: ${data}`));
     }
+    
+    if (processInfo.type === 'arp' && processInfo.process) {
+      console.log(`Stopping ARP spoofer for ${ip}`);
+      processInfo.process.kill('SIGINT');
+    }
+    
+    delete blockerProcesses[ip];
   }
 
   res.json({ success: true, blockedIPs });

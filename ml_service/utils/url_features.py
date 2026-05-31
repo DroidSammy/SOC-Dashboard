@@ -120,10 +120,7 @@ def predict_url(url, model=None):
     """Predict if a URL is phishing. Falls back to rules if no model."""
     features = extract_url_features(url)
     
-    # Remove newly added features that the old Random Forest wasn't trained on
     rf_features = features.copy()
-    if 'is_typosquatted' in rf_features:
-        del rf_features['is_typosquatted']
         
     feature_list = list(rf_features.values())
 
@@ -171,14 +168,17 @@ def predict_url(url, model=None):
 
     if score > 0.55:
         verdict = 'phishing'
+        confidence = score
     elif score > 0.3:
         verdict = 'suspicious'
+        confidence = score
     else:
         verdict = 'legitimate'
+        confidence = 1 - score
 
     return {
         'verdict': verdict,
-        'confidence': round(1 - abs(score - 0.5) * 2, 2) if score > 0.3 else round(1 - score, 2),
+        'confidence': round(confidence, 2),
         'phishing_score': round(score, 2),
         'features': features,
         'model_used': 'Rule-based (train model for better accuracy)',

@@ -88,7 +88,7 @@ export const api = {
     if (!response.ok) throw new Error('Report generation failed');
     return response.blob();
   },
-  blockNetworkIP: (ip, block) => postJson('/api/network/block', { ip, block }),
+  blockNetworkIP: (ip, block, method = 'hotspot') => postJson('/api/network/block', { ip, block, method }),
   getBlockedIPs: async () => {
     const response = await fetch(`${API_BASE}/api/network/blocked`);
     if (!response.ok) return { blockedIPs: [] };

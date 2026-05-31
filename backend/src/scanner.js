@@ -28,6 +28,7 @@ export async function runLocalNetworkSweep(targetIp) {
           devices.push({
             ip: parts[0],
             mac: parts[1],
+            name: parts.slice(2).join(' ') || 'Unknown Device',
             type: 'Live Device',
           });
         }
